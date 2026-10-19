@@ -1,0 +1,167 @@
+:root {
+  --blue: #2266ed;
+  --blue-dark: #1a4fc4;
+  --blue-deeper: #0f3a9e;
+  --blue-light: #e8f0fe;
+  --blue-glow: rgba(34, 102, 237, 0.22);
+  --blue-vivid: #3b7af8;
+  --blue-soft: #f0f5ff;
+  --gold: #c8963e;
+  --charcoal: #34363a;
+  --charcoal-soft: #2a2d35;
+  --charcoal-muted: #6b6f78;
+  --charcoal-faint: #9a9ea8;
+  --white-tint: #f5f7fa;
+  --hero-dark: #0f111a;
+  --dream-gold: #ffd03e;
+  --border: rgba(52, 54, 58, 0.07);
+  --border-mid: rgba(52, 54, 58, 0.13);
+  --sh-sm: 0 2px 14px rgba(52, 54, 58, 0.05);
+  --sh-md: 0 8px 32px rgba(52, 54, 58, 0.09);
+  --sh-lg: 0 20px 55px rgba(52, 54, 58, 0.13);
+  --sh-xl: 0 32px 75px rgba(52, 54, 58, 0.17);
+  --r: 14px;
+  --r-lg: 22px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t: 0.38s var(--ease);
+  --section-pad: clamp(2.5rem, 5vw, 4.5rem);
+  --wrap-max: 1360px;
+  --wrap-px: clamp(16px, 3.5vw, 48px);
+  --header-h: 96px;
+  --nav-h: 52px;
+  --total-sticky: calc(var(--header-h) + var(--nav-h));
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--total-sticky);
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  color: var(--charcoal);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  width: 100%;
+  background: var(--white-tint);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--white-tint);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(34, 102, 237, 0.35);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--blue);
+}
+
+/* ---------- Shared layout ---------- */
+.wrap {
+  max-width: var(--wrap-max);
+  margin: 0 auto;
+  padding: var(--section-pad) var(--wrap-px);
+}
+.wrap-sm {
+  max-width: var(--wrap-max);
+  margin: 0 auto;
+  padding: clamp(1.8rem, 3.5vw, 3rem) var(--wrap-px);
+}
+.page-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.7rem, 3vw, 2.6rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--charcoal);
+  letter-spacing: -0.3px;
+}
+.page-title em {
+  font-style: italic;
+  color: var(--blue);
+}
+
+/* Section chip — uppercase letter-spaced label with line dashes */
+.schip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Fraunces', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 8px;
+}
+.schip-ln {
+  width: 18px;
+  height: 2px;
+  background: var(--blue);
+  border-radius: 1px;
+}
+
+/* Scroll reveal */
+.sr {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+}
+.sr.in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.sr-d1 { transition-delay: 0.05s; }
+.sr-d2 { transition-delay: 0.12s; }
+.sr-d3 { transition-delay: 0.19s; }
+.sr-d4 { transition-delay: 0.26s; }
+
+/* Generic section header (chip + heading) */
+.sec-head {
+  margin-bottom: 1.8rem;
+}
+
+/* Utility */
+.muted { color: var(--charcoal-muted); }
+.faint { color: var(--charcoal-faint); }
+.blue { color: var(--blue); }
+.center { text-align: center; }
+.mt-1 { margin-top: 0.6rem; }
+.mt-2 { margin-top: 1.2rem; }
+.mt-3 { margin-top: 2rem; }
+.mb-1 { margin-bottom: 0.6rem; }
+.mb-2 { margin-bottom: 1.2rem; }
+.mb-3 { margin-bottom: 2rem; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.spread { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
