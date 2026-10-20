@@ -1,0 +1,3 @@
+this is a test commit from "sando"
+if commit is successfull test-commit.txt should appear in the
+repo to all contributors.
