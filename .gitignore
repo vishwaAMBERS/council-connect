@@ -28,3 +28,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Local embedded database
+backend/.data/
+
+# Expo
+.expo/

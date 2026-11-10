@@ -94,22 +94,30 @@ structured and role-aware place for these activities.
 
 ## Technology Stack
 
-The project documentation describes the following stack:
-
   Layer                        Technology
   ---------------------------- ----------------------------------------
+  Web interface                React.js (Vite), React Router
   Mobile application           React Native, Expo
-  Web interface                React.js
-  Backend API                  Java, Spring Boot, REST APIs
-  Authentication               Supabase Auth, JWT
-  Database                     PostgreSQL through Supabase
-  File storage                 Supabase Storage
-  Server-side AI integration   Supabase Edge Functions and an LLM API
-  Notifications                Firebase Cloud Messaging (FCM)
+  Backend API                  Node.js, Express, REST APIs
+  Authentication               JWT (bcrypt password hashing)
+  Database                     PostgreSQL (embedded PGlite for local
+                               development, Supabase when deployed)
+  Server-side AI integration   Anthropic Claude API, keyword fallback
   Maps                         Leaflet, OpenStreetMap
 
-> Check the actual repository and deployment configuration before
-> assuming every listed integration is fully implemented or enabled.
+> The original project report describes a Spring Boot backend. The
+> implementation uses Node.js/Express; see `docs/PROJECT_PLAN.md` for
+> the decisions and the current implementation status of each module.
+
+## Repository Layout
+
+``` text
+web/        React web application
+backend/    Express REST API
+mobile/     Expo mobile application
+database/   SQL migrations (legacy-mysql/ holds the earlier MySQL design)
+docs/       Project plan and reports
+```
 
 ## Architecture Overview
 
@@ -118,18 +126,11 @@ React Native / Expo mobile app     React.js web app
                  \                  /
                   \  REST API calls /
                    v               v
-                     Spring Boot API
+                    Express REST API ---- Claude API (server-side)
                             |
-             +--------------+---------------+
-             |              |               |
-         Supabase Auth   PostgreSQL    Supabase Storage
-             |              |
-             +------ Supabase Edge Functions
-                            |
-                         LLM API
+                        PostgreSQL
 
        Map: Leaflet + OpenStreetMap
-       Notifications: Firebase Cloud Messaging (FCM)
 ```
 
 The backend should enforce authentication, role permissions, and
@@ -172,106 +173,48 @@ Before deployment, verify that the project:
 
 ## Getting Started
 
-The exact commands depend on how the repository is organized. The
-project documentation describes separate mobile/web clients and a Spring
-Boot backend, so first identify the relevant folders.
-
-### Prerequisites
-
-Install the tools required by the components present in your repository:
-
--   Git
--   Java 17 or the Java version configured by the backend project
--   Maven, if the backend uses Maven
--   Node.js and npm
--   Expo CLI workflow for the React Native app
--   Access to the configured Supabase project
--   Required environment variables and service credentials
-
-### 1. Clone the repository
+Prerequisites: Git and Node.js 20 or newer. No database install is
+needed; local development uses an embedded PostgreSQL.
 
 ``` bash
-git clone <YOUR_REPOSITORY_URL>
-cd <REPOSITORY_FOLDER>
+git clone https://github.com/vishwaAMBERS/council-connect.git
+cd council-connect
+npm run setup
+npm run dev
 ```
 
-Replace the placeholders with your repository URL and folder name.
+`npm run setup` installs dependencies, creates `backend/.env` and
+`web/.env` from the examples, and applies database migrations.
+`npm run dev` starts the API on http://localhost:4000 and the web app on
+http://localhost:5173.
 
-### 2. Configure environment variables
+In development the backend seeds demo data on first start. Every demo
+account uses the password `demo1234`:
 
-Create local environment files according to the conventions used by each
-application. Do not commit secrets.
+  Account                 Role
+  ----------------------- -------------------------------------------
+  student@geca.ac.in      Student (IT, year 3)
+  it_cr3@geca.ac.in       Class Representative, IT (verified)
+  it_gs@geca.ac.in        General Secretary, IT (verifies IT reps)
+  mech_gs@geca.ac.in      General Secretary, Mechanical (unverified)
+  hod@geca.ac.in          Admin / HOD (verifies General Secretaries)
 
-Typical configuration values may include:
+Invite codes for testing council sign-up: `IT-COTECH-2026`,
+`CSE-SPORTS-2026`, `ADMIN-GECA-2026` (each works once; `npm run
+db:reset` restores them).
 
--   Supabase project URL
--   Supabase public/anonymous key for client-side use
--   Backend Supabase/JWT configuration
--   LLM API key for server-side Edge Functions
--   Firebase/FCM configuration if push notifications are enabled
+Other commands:
 
-Use the variable names expected by the source code. Do not copy private
-service-role keys or LLM secrets into a mobile or web client.
+-   `npm run migrate` applies pending migrations.
+-   `npm run db:reset` wipes the local database and re-seeds the demo data.
+-   `npm run build` builds the web app.
+-   `npm test` runs the backend tests.
+-   `npm run dev:mobile` starts Expo (run `npm install` in `mobile/`
+    first).
 
-### 3. Run the backend
-
-Open a terminal in the Spring Boot backend directory. If the repository
-contains a Maven wrapper, use it:
-
-``` bash
-# Windows
-mvnw.cmd spring-boot:run
-
-# macOS / Linux
-./mvnw spring-boot:run
-```
-
-If there is no Maven wrapper but Maven is installed, use:
-
-``` bash
-mvn spring-boot:run
-```
-
-The backend port and profile depend on the project configuration. Check
-`application.properties` or `application.yml`.
-
-### 4. Run the web application
-
-Open a terminal in the web client directory:
-
-``` bash
-npm install
-npm run
-```
-
-Review the scripts printed by `npm run` and start the script defined by
-that application's `package.json` (commonly `dev`).
-
-### 5. Run the mobile application
-
-Open a terminal in the React Native/Expo app directory:
-
-``` bash
-npm install
-npx expo start
-```
-
-Follow the Expo terminal instructions to open the app in an emulator or
-on a supported device.
-
-### 6. Verify the setup
-
--   Confirm that authentication works.
--   Confirm that the clients can reach the backend.
--   Confirm that database tables, migrations, and RLS policies are
-    configured.
--   Test each role with a separate account.
--   Confirm that AI integrations fail gracefully when credentials are
-    missing or a service is unavailable.
-
-> These are setup guidelines, not a guarantee that the current
-> repository will run without configuration. Adjust paths and commands
-> to match the actual folder structure and scripts.
+To use a PostgreSQL server such as Supabase, set `DATABASE_URL` in
+`backend/.env`. To enable AI categorisation, set `ANTHROPIC_API_KEY`
+there; it is never sent to a client.
 
 ## Configuration
 
