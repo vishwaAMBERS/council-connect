@@ -1,0 +1,20 @@
+{
+  "name": "council-connect",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CouncilConnect - campus governance and operations platform",
+  "scripts": {
+    "setup": "npm install && npm --prefix backend install && npm --prefix web install && node scripts/setup-env.mjs && npm run migrate",
+    "dev": "concurrently -n api,web -c blue,green \"npm --prefix backend run dev\" \"npm --prefix web run dev\"",
+    "dev:api": "npm --prefix backend run dev",
+    "dev:web": "npm --prefix web run dev",
+    "dev:mobile": "npm --prefix mobile run start",
+    "migrate": "npm --prefix backend run migrate",
+    "db:reset": "npm --prefix backend run db:reset",
+    "build": "npm --prefix web run build",
+    "test": "npm --prefix backend test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

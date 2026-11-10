@@ -1,0 +1,26 @@
+{
+  "name": "councilconnect-backend",
+  "version": "1.0.0",
+  "description": "Backend API for CouncilConnect",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test",
+    "migrate": "node src/db/migrate.js",
+    "db:reset": "node src/db/migrate.js --reset && node src/db/seed.js",
+    "seed": "node src/db/seed.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.7.0",
+    "@electric-sql/pglite": "^0.5.16",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.23.1"
+  }
+}
