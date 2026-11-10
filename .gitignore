@@ -34,3 +34,6 @@ backend/.data/
 
 # Expo
 .expo/
+
+# Vite cache
+.vite/
