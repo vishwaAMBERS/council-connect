@@ -4,6 +4,7 @@ import { query } from '../db/index.js';
 import { HttpError, h, str } from '../lib/http.js';
 import { signToken, requireAuth, publicUser, findUserByEmail, findUserById } from '../lib/auth.js';
 import { verificationScope, hasVerifiedSeat } from '../services/council.js';
+import { audit } from '../services/audit.js';
 
 const router = express.Router();
 
@@ -106,6 +107,10 @@ router.post('/register', h(async (req, res) => {
     }
 
     const user = await findUserById(created.id);
+    if (invite) {
+      await audit(user, 'account.invited', 'user', user.id,
+        `Registered with invite code ${invite.code} as ${invite.position_title || 'admin'}`);
+    }
     res.status(201).json({ token: signToken(user), user: await sessionUser(user) });
   } catch (error) {
     if (invite) await query('UPDATE invite_codes SET used_at = NULL WHERE code = $1 AND used_by IS NULL', [invite.code]).catch(() => {});

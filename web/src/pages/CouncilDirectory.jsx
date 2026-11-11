@@ -55,7 +55,10 @@ export default function CouncilDirectory() {
       {directory.loading && !directory.data ? (
         <Loading label="Loading council members…" />
       ) : members.length === 0 && !directory.error ? (
-        <EmptyState icon="users-slash" title="No council members found" desc="Try a different search or clear the filters." />
+        <>
+          <EmptyState icon="users-slash" title="No council members found" desc="Try a different search or clear the filters. Past councils are in the archive." />
+          <div className="center"><Link to="/archive" className="btn-out btn-sm">Open the Council Archive</Link></div>
+        </>
       ) : (
         <>
           <div className="faint" style={{ fontSize: '0.75rem', marginBottom: 12 }}>

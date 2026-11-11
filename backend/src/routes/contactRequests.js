@@ -5,6 +5,7 @@ import { HttpError, h, isUuid, str } from '../lib/http.js';
 import { requireAuth } from '../lib/auth.js';
 import { categoriseInBackground } from '../services/categoriser.js';
 import { notify } from '../services/notify.js';
+import { audit } from '../services/audit.js';
 import { DECLINE_COOLDOWN_MS } from './directory.js';
 
 const router = express.Router();
@@ -131,6 +132,7 @@ for (const [action, status] of [['approve', 'approved'], ['decline', 'declined']
       [row.id, status, req.user.id]
     )).rows[0];
     if (!updated) throw new HttpError(409, `This request was already ${row.status}`);
+    await audit(req.user, `request.${status}`, 'contact_request', row.id, `${status === 'approved' ? 'Approved' : 'Declined'} a contact request from ${row.from_name}`);
     await notify(row.from_id, {
       type: 'contact_request', title: `${row.to_name} ${status} your contact request`, body: row.reason_title, link: `/messages?request=${row.id}`
     });

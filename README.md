@@ -8,9 +8,10 @@ activities. It brings governance and communication together with event
 management, hostel grievance reporting, lost-and-found, campus
 navigation, analytics, and an archive.
 
-The project is documented as a GECA-focused system. Feature descriptions
-in this README reflect the project documentation; implementation status
-may vary by module.
+The project is documented as a GECA-focused system. All seven modules
+run on the web app against the live backend; the mobile app is not built
+yet. `docs/PROJECT_PLAN.md` records what each module does and its known
+gaps.
 
 ## Table of Contents
 

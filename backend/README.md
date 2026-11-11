@@ -7,7 +7,7 @@ Express REST API on PostgreSQL. Run everything from the repository root (`npm ru
 - `src/config/env.js` — configuration from `backend/.env`
 - `src/db/` — database access (`query`, `exec`), migration runner, demo seed
 - `src/lib/` — auth middleware, HTTP helpers, council positions
-- `src/services/` — verification hierarchy, AI labelling (requests, grievances), lost-and-found matching, notifications
+- `src/services/` — verification hierarchy, AI labelling (requests, grievances), lost-and-found matching, notifications, audit trail
 - `src/routes/` — API routes
 - `test/` — API tests (`npm test`, in-memory database)
 - `uploads/` — uploaded images in local development (not committed)
@@ -45,5 +45,10 @@ Express REST API on PostgreSQL. Run everything from the repository root (`npm ru
 | GET, POST | `/lost-found/matches/:id/messages` | the two matched parties |
 | GET | `/locations`, `/map` | signed in |
 | GET | `/notifications`; POST `/notifications/read` | signed in |
+| GET | `/analytics` | admin |
+| GET | `/audit-logs?entity=&limit=` | admin |
+| GET | `/archive?year=&unit=` | signed in |
+| GET | `/archive/preview` | admin |
+| POST | `/archive/run` | admin (closes the academic year; irreversible) |
 
 Errors are returned as `{ "error": "message" }` with a matching HTTP status.

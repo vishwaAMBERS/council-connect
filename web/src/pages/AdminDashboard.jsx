@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { StatBand, Badge, Table, Button, useToast, EmptyState, Modal, InitialsAvatar, ErrorNote, Loading, DemoDataNote } from '../components/ui.jsx';
+import { Badge, Table, Button, useToast, EmptyState, Modal, Field, InitialsAvatar, ErrorNote, Loading } from '../components/ui.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { api } from '../api/client.js';
 import { formatDateTime } from '../lib/format.js';
-import { analytics } from '../data/mock.js';
 import { colors } from '../theme/theme.js';
+import AdminAnalytics from './AdminAnalytics.jsx';
 
 /** Unverified members the signed-in user is allowed to verify (HOD: General Secretaries; GS: own branch). */
 function VerificationPanel() {
@@ -53,7 +53,7 @@ function VerificationPanel() {
         <div className="grid-3">
           {members.map((m) => (
             <div key={m.profileId} className="card-accent" style={{ textAlign: 'center' }}>
-              <InitialsAvatar name={m.fullName} size={80} fontSize="1.4rem" style={{ margin: '0 auto 12px' }} />
+              <InitialsAvatar name={m.fullName} src={m.avatarUrl} size={80} fontSize="1.4rem" style={{ margin: '0 auto 12px' }} />
               <Link to={`/council/${m.userId}`} className="card-title" style={{ textDecoration: 'none', display: 'block' }}>{m.fullName}</Link>
               <Badge tone="gray" icon="hourglass-half">Unverified</Badge>
               <div className="muted" style={{ fontSize: '0.74rem', margin: '8px 0 12px' }}>{m.positionTitle} · {m.council.name}</div>
@@ -85,55 +85,147 @@ function VerificationPanel() {
   );
 }
 
-function VerificationLog() {
-  const logs = useApi('/verification/logs');
+const ENTITY_LABEL = { member: 'Verification', request: 'Contact requests', event: 'Events', grievance: 'Complaints', archive: 'Archive', account: 'Accounts' };
+const actionLabel = (action) => {
+  const [entity, verb] = action.split('.');
+  return `${ENTITY_LABEL[entity] || entity}: ${verb.replace(/_/g, ' ')}`;
+};
+
+/** Who did what, when: verifications, request decisions, events, complaint handling, archive runs. */
+function AuditLog() {
+  const [entity, setEntity] = useState('');
+  const logs = useApi(`/audit-logs${entity ? `?entity=${entity}` : ''}`);
   const rows = logs.data?.logs || [];
+
   return (
     <div className="card-accent">
-      <div className="sec-head" style={{ marginBottom: 12 }}>
-        <div className="schip"><span className="schip-ln" />Traceability<span className="schip-ln" /></div>
-        <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem' }}>Verification <em className="blue">Log</em></h3>
+      <div className="spread" style={{ marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
+        <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem' }}>Audit <em className="blue">Log</em></h3>
+        <select className="select" value={entity} onChange={(e) => setEntity(e.target.value)} aria-label="Filter by area" style={{ width: 'auto', minWidth: 180 }}>
+          <option value="">All activity</option>
+          {(logs.data?.entities || []).map((key) => <option key={key} value={key}>{ENTITY_LABEL[key] || key}</option>)}
+        </select>
       </div>
       <ErrorNote error={logs.error} onRetry={logs.reload} />
       {logs.loading && !logs.data ? (
         <Loading />
       ) : rows.length === 0 ? (
-        <EmptyState icon="clock-rotate-left" title="No verifications recorded yet" />
+        <EmptyState icon="clock-rotate-left" title="Nothing recorded yet" />
       ) : (
-        <Table head={['When', 'Member', 'Position', 'Council', 'Verified by']}>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td className="faint">{formatDateTime(row.verifiedAt)}</td>
-              <td><Link to={`/council/${row.member.id}`} style={{ color: 'inherit', fontWeight: 700 }}>{row.member.fullName}</Link></td>
-              <td>{row.positionTitle}</td>
-              <td>{row.councilName}</td>
-              <td className="blue" style={{ fontWeight: 700 }}>{row.verifiedBy.fullName}</td>
-            </tr>
-          ))}
-        </Table>
+        <>
+          <Table head={['When', 'Who', 'Action', 'Details']}>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td className="faint" style={{ whiteSpace: 'nowrap' }}>{formatDateTime(row.createdAt)}</td>
+                <td style={{ fontWeight: 700 }}>{row.actorName}</td>
+                <td className="blue" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{actionLabel(row.action)}</td>
+                <td style={{ overflowWrap: 'anywhere' }}>
+                  {row.entityType === 'grievance' && row.entityId ? <Link to={`/grievances/${row.entityId}`} style={{ color: 'inherit' }}>{row.summary}</Link> : row.summary}
+                </td>
+              </tr>
+            ))}
+          </Table>
+          <p className="faint" style={{ fontSize: '11px', marginTop: 10 }}>Showing the latest {rows.length} entries. Entries cannot be edited or deleted.</p>
+        </>
       )}
     </div>
   );
 }
 
-function DemoAnalytics() {
+/** Suggests the year that is ending: July to June, so November 2026 is in 2026-27. */
+function currentAcademicYear() {
+  const now = new Date();
+  const start = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+/** End-of-year action: archive the whole council and clear the directory for the next one. */
+function AcademicYear() {
+  const { refreshUser } = useAuth();
+  const toast = useToast();
+  const preview = useApi('/archive/preview');
+  const [year, setYear] = useState(currentAcademicYear());
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const active = preview.data?.activeProfiles ?? 0;
+  const alreadyArchived = (preview.data?.archivedYears || []).includes(year);
+
+  const run = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await api.post('/archive/run', { academicYear: year });
+      toast(`Archived ${result.archived} council seats for ${result.academicYear}`, 'success');
+      setOpen(false);
+      setTyped('');
+      await preview.reload();
+      refreshUser().catch(() => {});
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <>
-      <DemoDataNote />
-      <StatBand items={analytics.governance.slice(0, 4).map((g, i) => ({ icon: ['users', 'circle-check', 'hourglass-half', 'envelope'][i], num: g.value, ac: '', label: g.label }))} />
-      <div className="grid-2" style={{ marginTop: '1.5rem' }}>
-        {[['Event', analytics.events], ['Complaint', analytics.complaints]].map(([title, rows]) => (
-          <div className="card-accent" key={title}>
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem', marginBottom: 12 }}>{title} <em className="blue">Analytics</em></h3>
-            <Table head={['Metric', 'Value']}>
-              {rows.map((e) => (
-                <tr key={e.label}><td>{e.label}</td><td className="blue" style={{ fontWeight: 800 }}>{e.value}</td></tr>
-              ))}
-            </Table>
+    <div className="card-accent" style={{ maxWidth: 720 }}>
+      <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.1rem' }}>Close the academic <em className="blue">year</em></h3>
+      <p className="muted" style={{ fontSize: '0.84rem', lineHeight: 1.7, margin: '8px 0 14px' }}>
+        At the end of the year, every active council seat is copied into the archive with its term, verification record and activity
+        counts. The seats are then closed, their holders return to ordinary student accounts, and the directory is empty for the
+        incoming council. Archived records cannot be changed.
+      </p>
+      <ErrorNote error={preview.error} onRetry={preview.reload} />
+      {preview.data && (
+        <>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+            <Badge tone="blue" icon="users">{active} active council seat{active === 1 ? '' : 's'}</Badge>
+            {preview.data.archivedYears.map((y) => <Badge key={y} tone="gray" icon="box-archive">{y} archived</Badge>)}
+            <Link to="/archive" className="btn-ghost btn-sm">Browse the archive</Link>
           </div>
-        ))}
-      </div>
-    </>
+          <div className="row" style={{ gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <Field label="Academic year that is ending" hint="Format: 2026-27">
+              <input className="input" value={year} onChange={(e) => setYear(e.target.value.trim())} pattern="\d{4}-\d{2}" maxLength={7} style={{ width: 160 }} />
+            </Field>
+            <div style={{ marginBottom: '1rem' }}>
+              <Button variant="danger" disabled={active === 0 || !/^\d{4}-\d{2}$/.test(year)} onClick={() => { setError(null); setTyped(''); setOpen(true); }}>
+                <i className="fas fa-box-archive" /> Archive council and start new year
+              </Button>
+            </div>
+          </div>
+          {active === 0 && <p className="faint" style={{ fontSize: '0.78rem' }}>There are no active council members to archive.</p>}
+          {alreadyArchived && active > 0 && (
+            <p style={{ fontSize: '0.78rem', color: '#9a6b14', fontWeight: 600 }}>
+              <i className="fas fa-triangle-exclamation" style={{ marginRight: 6 }} />
+              {year} already has archived records. Running it again adds the current members to the same year.
+            </p>
+          )}
+        </>
+      )}
+
+      <Modal open={open} onClose={() => setOpen(false)} title={`Close academic year ${year}?`}>
+        <form onSubmit={run}>
+          <ErrorNote error={error} />
+          <p style={{ fontSize: '0.88rem', lineHeight: 1.7 }}>
+            This archives <strong>{active} council seat{active === 1 ? '' : 's'}</strong> under <strong>{year}</strong>, removes all of
+            them from the directory, and turns their holders back into student accounts.
+          </p>
+          <p style={{ fontSize: '0.82rem', margin: '10px 0 14px', color: '#c0392b', fontWeight: 600 }}>
+            This cannot be undone. New council members must register with invite codes and be verified again.
+          </p>
+          <Field label={`Type ${year} to confirm`}>
+            <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" />
+          </Field>
+          <div className="row">
+            <Button type="submit" variant="danger" disabled={busy || typed.trim() !== year}>{busy ? 'Archiving…' : 'Archive and close the year'}</Button>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
   );
 }
 
@@ -153,7 +245,7 @@ export default function AdminDashboard() {
 
   const tabs = [
     ['verify', 'user-check', 'Verification'],
-    ...(isAdmin ? [['audit', 'history', 'Verification Log'], ['overview', 'chart-pie', 'Analytics']] : []),
+    ...(isAdmin ? [['analytics', 'chart-simple', 'Analytics'], ['audit', 'clock-rotate-left', 'Audit Log'], ['year', 'box-archive', 'Academic Year']] : []),
   ];
 
   return (
@@ -177,8 +269,9 @@ export default function AdminDashboard() {
       )}
 
       {tab === 'verify' && <VerificationPanel />}
-      {tab === 'audit' && isAdmin && <VerificationLog />}
-      {tab === 'overview' && isAdmin && <DemoAnalytics />}
+      {tab === 'analytics' && isAdmin && <AdminAnalytics />}
+      {tab === 'audit' && isAdmin && <AuditLog />}
+      {tab === 'year' && isAdmin && <AcademicYear />}
     </div>
   );
 }

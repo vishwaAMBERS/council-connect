@@ -118,6 +118,14 @@ export async function seedOperations({ log = console.log } = {}) {
     [users.student2.id, users.student3.id, users.it_cr3.id, place.Canteen, place['Mechanical Department and Workshop'], place['Main Auditorium']]
   );
 
+  // Seeded complaint history also belongs in the audit log.
+  await query(
+    `INSERT INTO audit_logs (actor_id, actor_name, action, entity_type, entity_id, summary, created_at)
+     SELECT h.actor_id, COALESCE(u.full_name, 'System'), 'grievance.' || h.status::text, 'grievance', h.grievance_id,
+            'Complaint "' || g.title || '": ' || replace(h.status::text, '_', ' '), h.created_at
+     FROM grievance_history h JOIN grievances g ON g.id = h.grievance_id LEFT JOIN users u ON u.id = h.actor_id`
+  );
+
   log(`seeded campus operations demo data (${LOCATIONS.length} locations, 4 events, 3 grievances, 3 lost/found reports)`);
   return true;
 }

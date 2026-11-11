@@ -19,6 +19,7 @@ import LostFound from './pages/LostFound.jsx';
 import CampusMap from './pages/CampusMap.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import Profile from './pages/Profile.jsx';
+import Archive from './pages/Archive.jsx';
 
 function Splash() {
   return (
@@ -69,6 +70,7 @@ export default function App() {
               <Route path="/campus-map" element={guarded(<CampusMap />)} />
               <Route path="/admin" element={guarded(<AdminDashboard />)} />
               <Route path="/profile" element={guarded(<Profile />)} />
+              <Route path="/archive" element={guarded(<Archive />)} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </AppShell>

@@ -7,6 +7,7 @@ import { query, closeDb } from './index.js';
 import { migrate } from './migrate.js';
 import { POSITION_TITLES } from '../lib/positions.js';
 import { seedOperations } from './seedOperations.js';
+import { seedArchive } from './seedArchive.js';
 
 export const DEMO_PASSWORD = 'demo1234';
 
@@ -161,6 +162,14 @@ async function seedCore({ log = console.log } = {}) {
     [approved.id, userId.student2, userId.cse_gs]
   );
 
+  // Seeded verifications also belong in the audit log (the migration only carries over rows that existed before it ran).
+  await query(
+    `INSERT INTO audit_logs (actor_id, actor_name, action, entity_type, entity_id, summary, created_at)
+     SELECT l.verified_by, b.full_name, 'member.verified', 'council_profile', l.council_profile_id,
+            'Verified ' || m.full_name || ' as ' || l.position_title || ' (' || l.council_name || ')', l.verified_at
+     FROM verification_logs l JOIN users b ON b.id = l.verified_by JOIN users m ON m.id = l.verified_user_id`
+  );
+
   log(`seeded demo data (${Object.keys(userId).length} users, password "${DEMO_PASSWORD}")`);
   return true;
 }
@@ -169,7 +178,8 @@ async function seedCore({ log = console.log } = {}) {
 export async function seed(options = {}) {
   const core = await seedCore(options);
   const operations = await seedOperations(options);
-  return core || operations;
+  const archive = await seedArchive(options);
+  return core || operations || archive;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

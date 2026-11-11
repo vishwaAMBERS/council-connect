@@ -395,13 +395,3 @@ export function Loading({ label = 'Loading…' }) {
     </div>
   );
 }
-
-/** Marks a page that still runs on sample data rather than the live backend. */
-export function DemoDataNote() {
-  return (
-    <div style={{ background: '#fdf3dd', color: '#7a5510', border: '1px solid rgba(200,150,62,.35)', borderRadius: 12, padding: '9px 14px', fontSize: '12px', fontWeight: 600, marginBottom: '1.2rem' }}>
-      <i className="fas fa-flask" style={{ marginRight: 8 }} />
-      Demo data. This module is not connected to the live backend yet, so nothing here is saved.
-    </div>
-  );
-}

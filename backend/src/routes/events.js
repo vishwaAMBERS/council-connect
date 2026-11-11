@@ -5,6 +5,8 @@ import { HttpError, h, isUuid, str } from '../lib/http.js';
 import { requireAuth } from '../lib/auth.js';
 import { hasVerifiedSeat } from '../services/council.js';
 import { optionalUploadUrl } from './uploads.js';
+import { audit } from '../services/audit.js';
+import { notify } from '../services/notify.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -106,6 +108,8 @@ router.post('/', h(async (req, res) => {
     [req.user.id, req.user.academic_unit_id, title, description, venue, locationId, startsAt.toISOString(), branchScope, capacity, posterUrl]
   )).rows[0];
 
+  await audit(req.user, 'event.created', 'event', created.id, `Published the event "${title}"`);
+
   const row = (await query(`${EVENT_SELECT} WHERE e.id = $2`, [req.user.id, created.id])).rows[0];
   res.status(201).json({ event: publicEvent(row, req.user) });
 }));
@@ -175,5 +179,27 @@ router.patch('/:id/attendance', h(async (req, res) => {
   if (!updated) throw new HttpError(404, 'That student is not registered for this event');
   res.json({ ok: true });
 }));
+
+/**
+ * Reminds registered students about events starting within the next 24 hours. Each event is
+ * claimed first (reminder_sent_at), so a reminder goes out once even if two sweeps overlap.
+ */
+export async function sendEventReminders() {
+  const due = (await query(
+    `UPDATE events SET reminder_sent_at = now()
+     WHERE reminder_sent_at IS NULL AND starts_at > now() AND starts_at <= now() + interval '24 hours'
+     RETURNING id, title, venue, starts_at`
+  )).rows;
+  let sent = 0;
+  for (const event of due) {
+    const students = (await query('SELECT student_id FROM event_registrations WHERE event_id = $1', [event.id])).rows;
+    const time = new Date(event.starts_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    for (const { student_id: studentId } of students) {
+      await notify(studentId, { type: 'event', title: `Reminder: ${event.title}`, body: `${time} at ${event.venue}`, link: '/events' });
+      sent += 1;
+    }
+  }
+  return sent;
+}
 
 export default router;

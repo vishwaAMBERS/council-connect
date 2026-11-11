@@ -5,6 +5,7 @@ import { HttpError, h, isUuid } from '../lib/http.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { PROFILE_SELECT, publicProfile, verificationScope, verifyDenialReason } from '../services/council.js';
 import { notify } from '../services/notify.js';
+import { audit } from '../services/audit.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -32,6 +33,8 @@ router.post('/council-profiles/:id/verify', h(async (req, res) => {
     [profile.profile_id, profile.user_id, req.user.id, profile.position_title, profile.council_name]
   );
 
+  await audit(req.user, 'member.verified', 'council_profile', profile.profile_id,
+    `Verified ${profile.full_name} as ${profile.position_title} (${profile.council_name})`);
   await notify(profile.user_id, {
     type: 'verification', title: 'Your council position was verified',
     body: `${profile.position_title}, verified by ${req.user.full_name}`, link: '/profile'

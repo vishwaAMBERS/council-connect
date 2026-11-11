@@ -8,9 +8,9 @@ and the database progress report (originals in `docs/reports/` and the team's do
 
 | Area | State |
 | --- | --- |
-| Web (`web/`) | Every module except admin analytics runs on the live API: governance, events, grievances, lost & found, map, notifications. Admin analytics still shows demo data (labelled). |
-| Backend (`backend/`) | Express + PostgreSQL. Governance core and campus operations complete, with role checks and 19 API tests. |
-| Database (`database/`) | Migrations 001 (identity, councils), 002 (governance) and 003 (campus operations), plus demo seed data. The earlier MySQL work is kept in `legacy-mysql/` as reference. |
+| Web (`web/`) | Every module runs on the live API: governance, events, grievances, lost & found, map, notifications, analytics, audit log, archive. No page uses demo data any more. |
+| Backend (`backend/`) | Express + PostgreSQL. Governance, campus operations, analytics, audit and archive complete, with role checks and 24 API tests. |
+| Database (`database/`) | Migrations 001 (identity, councils), 002 (governance), 003 (campus operations) and 004 (archive, audit), plus demo seed data. The earlier MySQL work is kept in `legacy-mysql/` as reference. |
 | Mobile (`mobile/`) | Expo shell with login and home screens only. |
 | AI | Contact-request categorisation and grievance category + priority: Claude API when `ANTHROPIC_API_KEY` is set, keyword rules otherwise. Lost & found matching is keyword similarity. |
 
@@ -112,7 +112,6 @@ Done when Phase 1 criteria 1–7 pass in a live demo against the real database.
 Notes and known gaps:
 - Demo accounts are seeded on first start in development; all use the password `demo1234` (see the README).
 - The admin is institution-wide (one HOD-level role); per-department admins are not modelled.
-- Admin analytics still shows demo data and is labelled as such.
 
 ### Checklist 2 — Campus operations on web (done)
 
@@ -137,16 +136,33 @@ Notes and known gaps:
 - **Grievance handling model.** Any verified representative or admin can take an open complaint. After escalation (timed or by the student) only admins handle it. This is a two-level chain; the Phase 2 PRD's four-level chain (CR → Secretary → GS → HOD) and hostel staff roles (rector, warden) are not modelled.
 - **Lost & found matching is keyword similarity** (word overlap on title and description, plus a same-place bonus), not an embedding or LLM model. The report calls this "semantic matching"; either describe it accurately in the report or upgrade it later.
 - **Map coordinates are approximate** placements around the campus centre (`backend/src/db/seedOperations.js`). Replace with surveyed positions before a real deployment. Route guidance is not built.
-- **Not built:** event reminder notifications, push notifications (in-app only), saving events.
+- **Not built:** push notifications (in-app only), saving events. Event reminders were added in Checklist 3.
 - **Uploads are stored on local disk** (`backend/uploads/`), to move to Supabase Storage in Checklist 5.
 - Not checked in the browser: the create-event form, photo upload, the notification dropdown, and visual layout (the checks read page content, not screenshots). They are covered by API tests where an API is involved.
 
-### Checklist 3 — Analytics, archive, audit
+### Checklist 3 — Analytics, archive, audit (done)
 
-- [ ] Event reminder notifications before an event starts
-- [ ] Admin dashboard on live queries: council/verification counts, request volume and response time, category split, event registrations, grievance resolution and escalations
-- [ ] Archive: admin "start new academic year" snapshots and deactivates council profiles; browser by year and unit (criterion 12)
-- [ ] Audit log viewer
+- [x] `004_archive_audit.sql`: council_archive, audit_logs (existing verification and complaint history carried over), event reminder marker; demo archive for 2025-26
+- [x] Admin analytics on live queries: council and verification counts, contact-request volume, response time and category split, per-representative load, event registrations, attendance and engagement rates, complaint volume, resolution time, escalations, lost & found, weekly active users
+- [x] Archive: admin "close the academic year" snapshots every active council seat (term, verification record, events organised, requests handled, complaints resolved), closes the seats and returns their holders to student accounts; archive browser by year and branch, open to everyone (criterion 12)
+- [x] Audit log viewer (admin), filterable by area: verifications, contact-request decisions, events published, complaint handling and escalations, invite-code registrations, archive runs
+- [x] Event reminder notifications to registered students, once, within 24 hours of the start
+
+**Result (11 Nov 2026).** `npm test` passes 24 API tests. Live run in the browser against the seeded database:
+
+| # | Criterion | Result |
+| --- | --- | --- |
+| 12 | An archived council member record is visible in the archive browser by academic year and branch | Pass (2025-26 demo archive, filtered to IT) |
+
+Also checked in the browser: analytics figures match the database, the audit log lists and filters entries, and the year-close dialog stays locked until the year is typed. The year-close action itself was exercised by API tests only, not run on the demo database, because it empties the directory.
+
+Notes and known gaps:
+- **Closing a year is irreversible.** It deactivates every council seat and sets former representatives back to the student role. Their existing conversations stay readable; new contact requests to them are refused. The next council registers with fresh invite codes.
+- **Invite codes are still created only by the seed script.** There is no screen for an admin or General Secretary to issue codes, so onboarding a real incoming council needs one (planned for Checklist 5, or the Phase 2 nomination flow F-14).
+- **The 2025-26 archive is demo data** (invented names, not linked to accounts). Remove it before real use.
+- **Analytics are computed on request** from the transactional tables; there are no charts over time and no per-semester comparison. Kafka/Spark from the Phase 2 PRD are out of scope.
+- **"Active in the last 7 days" counts people who created something** (request, message, registration, complaint, lost/found report); logins are not tracked.
+- **The audit log starts from this release** for request decisions and events; only verifications and complaint history were carried over from before.
 
 ### Checklist 4 — Mobile app
 
@@ -159,5 +175,6 @@ Notes and known gaps:
 
 - [ ] Supabase project: run migrations, set `DATABASE_URL`, move uploads to Supabase Storage
 - [ ] Deploy backend and web; restrict CORS; rate-limit auth; production JWT secret
-- [ ] Demo accounts and reset script
+- [ ] Invite-code management screen (issue and revoke codes for incoming council members)
+- [ ] Remove demo archive and demo accounts from any real deployment; demo reset script
 - [ ] Update Project Report stack chapters, README, screenshots; final 12-criteria run-through

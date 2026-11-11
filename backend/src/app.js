@@ -13,6 +13,7 @@ import eventRoutes from './routes/events.js';
 import grievanceRoutes from './routes/grievances.js';
 import lostFoundRoutes from './routes/lostFound.js';
 import campusRoutes from './routes/campus.js';
+import adminRoutes from './routes/admin.js';
 
 export function createApp({ logRequests = true } = {}) {
   const app = express();
@@ -46,6 +47,7 @@ export function createApp({ logRequests = true } = {}) {
   app.use(directoryRoutes); // /meta, /directory, /users
   app.use(verificationRoutes); // /council-profiles, /verification
   app.use(campusRoutes); // /locations, /map, /notifications
+  app.use(adminRoutes); // /analytics, /audit-logs, /archive
 
   app.use(notFound);
   app.use(errorHandler);

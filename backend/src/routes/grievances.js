@@ -12,6 +12,7 @@ import { hasVerifiedSeat } from '../services/council.js';
 import { classifyGrievanceInBackground, ESCALATION_HOURS } from '../services/categoriser.js';
 import { notify, notifyAdmins } from '../services/notify.js';
 import { optionalUploadUrl } from './uploads.js';
+import { audit } from '../services/audit.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -66,6 +67,7 @@ export async function escalateOverdue() {
   )).rows;
   for (const row of rows) {
     await addHistory(row.id, null, 'escalated', 'Not resolved within the response window. Escalated automatically to the HOD.');
+    await audit(null, 'grievance.escalated', 'grievance', row.id, `Complaint "${row.title}": escalated automatically (deadline passed)`);
     await notify(row.raised_by, {
       type: 'grievance', title: 'Your complaint was escalated', body: row.title, link: `/grievances/${row.id}`
     });
@@ -111,6 +113,7 @@ router.post('/', h(async (req, res) => {
     [req.user.id, title, description, roomNumber || null, imageUrl, ESCALATION_HOURS.medium]
   )).rows[0];
   await addHistory(created.id, req.user.id, 'submitted');
+  await audit(req.user, 'grievance.submitted', 'grievance', created.id, `Complaint "${title}": submitted`);
 
   // Saved first; category, priority and the matching deadline are attached afterwards.
   classifyGrievanceInBackground(created.id, title, description);
@@ -180,6 +183,8 @@ router.post('/:id/:action(take|start|resolve)', h(async (req, res) => {
   }
   await addHistory(row.id, req.user.id, status, note || (action === 'take' ? `Assigned to ${req.user.full_name}` : null));
 
+  await audit(req.user, `grievance.${status}`, 'grievance', row.id, `Complaint "${row.title}": ${action === 'take' ? 'taken' : status.replace('_', ' ')}`);
+
   const titles = { take: 'Your complaint was assigned', start: 'Work started on your complaint', resolve: 'Your complaint was resolved' };
   await notify(row.raised_by, { type: 'grievance', title: titles[action], body: row.title, link: `/grievances/${row.id}` });
 
@@ -204,6 +209,7 @@ router.post('/:id/escalate', h(async (req, res) => {
   )).rows[0];
   if (!updated) throw new HttpError(409, 'This complaint is already escalated');
   await addHistory(row.id, req.user.id, 'escalated', `Escalated by the student: ${reason}`);
+  await audit(req.user, 'grievance.escalated', 'grievance', row.id, `Complaint "${row.title}": escalated by the student`);
   await notifyAdmins({ type: 'grievance', title: 'Complaint escalated to you', body: row.title, link: `/grievances/${row.id}` });
 
   res.json({ grievance: publicGrievance((await query(`${GRIEVANCE_SELECT} WHERE g.id = $1`, [row.id])).rows[0]) });

@@ -13,6 +13,7 @@ export default function Navbar() {
     { to: '/grievances', label: 'Grievances', icon: 'clipboard-list' },
     { to: '/lost-found', label: 'Lost & Found', icon: 'search' },
     { to: '/campus-map', label: 'Campus Map', icon: 'map-marked-alt' },
+    { to: '/archive', label: 'Archive', icon: 'box-archive' },
   ];
 
   if (user) {
