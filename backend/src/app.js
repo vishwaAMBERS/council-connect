@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { config } from './config/env.js';
 import { query, dbKind } from './db/index.js';
 import { h, notFound, errorHandler } from './lib/http.js';
@@ -14,9 +16,16 @@ import grievanceRoutes from './routes/grievances.js';
 import lostFoundRoutes from './routes/lostFound.js';
 import campusRoutes from './routes/campus.js';
 import adminRoutes from './routes/admin.js';
+import inviteCodeRoutes from './routes/inviteCodes.js';
 
 export function createApp({ logRequests = true } = {}) {
   const app = express();
+
+  // Behind a hosting proxy (Render, Railway, ...) the client address is in X-Forwarded-For.
+  if (config.isProduction) app.set('trust proxy', 1);
+
+  // Standard security headers. Uploaded images are loaded by the web app from another origin.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
   app.use(cors({ origin: config.corsOrigin.split(',').map((origin) => origin.trim()) }));
   app.use(express.json({ limit: '100kb' }));
@@ -38,6 +47,17 @@ export function createApp({ logRequests = true } = {}) {
     setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff')
   }));
 
+  // Slow down password guessing and bulk sign-ups. Counted per client address.
+  const limiter = (windowMinutes, limit, message) => rateLimit({
+    windowMs: windowMinutes * 60 * 1000,
+    limit,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: message }
+  });
+  app.use('/auth/login', limiter(15, 30, 'Too many sign-in attempts. Try again in a few minutes'));
+  app.use('/auth/register', limiter(60, 20, 'Too many accounts created from this network. Try again later'));
+
   app.use('/auth', authRoutes);
   app.use('/events', eventRoutes);
   app.use('/grievances', grievanceRoutes);
@@ -48,6 +68,7 @@ export function createApp({ logRequests = true } = {}) {
   app.use(verificationRoutes); // /council-profiles, /verification
   app.use(campusRoutes); // /locations, /map, /notifications
   app.use(adminRoutes); // /analytics, /audit-logs, /archive
+  app.use(inviteCodeRoutes); // /invite-codes
 
   app.use(notFound);
   app.use(errorHandler);

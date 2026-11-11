@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 process.env.PGLITE_DATA_DIR = 'memory://';
-process.env.DATABASE_URL = '';
+// TEST_DATABASE_URL points the suite at a real PostgreSQL server; by default it uses the in-memory database.
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || '';
 process.env.ANTHROPIC_API_KEY = ''; // keyword rules only: no network in tests
 process.env.JWT_SECRET = 'test-secret';
 process.env.UPLOADS_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-uploads-'));

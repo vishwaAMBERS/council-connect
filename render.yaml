@@ -1,0 +1,41 @@
+# Render blueprint: one web service for the API and one static site for the web app.
+# Create both with "New > Blueprint" in Render and point it at this repository.
+# The database is not created here; use a Supabase (or any PostgreSQL) connection string.
+# See docs/DEPLOYMENT.md for the full steps.
+services:
+  - type: web
+    name: councilconnect-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true          # a long random value, created once by Render
+      - key: DATABASE_URL
+        sync: false                  # paste the PostgreSQL connection string in the dashboard
+      - key: DATABASE_SSL
+        value: require
+      - key: CORS_ORIGIN
+        sync: false                  # the web app's address, e.g. https://councilconnect-web.onrender.com
+      - key: ANTHROPIC_API_KEY
+        sync: false                  # optional; without it, categorisation uses keyword rules
+      - key: UPLOADS_DIR
+        value: uploads               # see docs/DEPLOYMENT.md: files here are lost on redeploy without a disk
+
+  - type: web
+    name: councilconnect-web
+    runtime: static
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false                  # the API's address, e.g. https://councilconnect-api.onrender.com
+    routes:
+      - type: rewrite                # single-page app: every path serves index.html
+        source: /*
+        destination: /index.html

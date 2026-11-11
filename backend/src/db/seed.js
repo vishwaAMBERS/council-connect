@@ -13,7 +13,7 @@ export const DEMO_PASSWORD = 'demo1234';
 
 const TERM = ['2026-07-01', '2027-06-30'];
 
-const UNITS = [
+export const UNITS = [
   ['CSE', 'Computer Science and Engineering', 'engineering_branch'],
   ['IT', 'Information Technology', 'engineering_branch'],
   ['MECH', 'Mechanical Engineering', 'engineering_branch'],

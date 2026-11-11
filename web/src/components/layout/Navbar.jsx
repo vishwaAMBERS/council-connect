@@ -22,7 +22,7 @@ export default function Navbar() {
   if (user?.role === 'admin') {
     base.push({ to: '/admin', label: 'Admin', icon: 'shield-alt' });
   } else if (user?.canVerify) {
-    base.push({ to: '/admin', label: 'Verification', icon: 'user-check' });
+    base.push({ to: '/admin', label: 'Manage Council', icon: 'user-check' });
   }
 
   return (

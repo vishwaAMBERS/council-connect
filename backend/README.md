@@ -5,11 +5,11 @@ Express REST API on PostgreSQL. Run everything from the repository root (`npm ru
 - `src/server.js` — entry: applies migrations, seeds demo data in development, starts the app
 - `src/app.js` — Express app (used by the server and by tests)
 - `src/config/env.js` — configuration from `backend/.env`
-- `src/db/` — database access (`query`, `exec`), migration runner, demo seed
+- `src/db/` — database access (`query`, `exec`), migration runner, demo seed, production bootstrap (`npm run bootstrap`)
 - `src/lib/` — auth middleware, HTTP helpers, council positions
 - `src/services/` — verification hierarchy, AI labelling (requests, grievances), lost-and-found matching, notifications, audit trail
 - `src/routes/` — API routes
-- `test/` — API tests (`npm test`, in-memory database)
+- `test/` — API tests (`npm test`, in-memory database); set `TEST_DATABASE_URL` to run a test file against an empty PostgreSQL database instead
 - `uploads/` — uploaded images in local development (not committed)
 
 ## Endpoints
@@ -50,5 +50,8 @@ Express REST API on PostgreSQL. Run everything from the repository root (`npm ru
 | GET | `/archive?year=&unit=` | signed in |
 | GET | `/archive/preview` | admin |
 | POST | `/archive/run` | admin (closes the academic year; irreversible) |
+| GET | `/invite-codes`, `/invite-codes/options` | admin, or verified General Secretary (own council) |
+| POST | `/invite-codes` | same; only an admin can issue an admin code |
+| DELETE | `/invite-codes/:code` | same; unused codes only |
 
 Errors are returned as `{ "error": "message" }` with a matching HTTP status.

@@ -7,6 +7,7 @@ import { api } from '../api/client.js';
 import { formatDateTime } from '../lib/format.js';
 import { colors } from '../theme/theme.js';
 import AdminAnalytics from './AdminAnalytics.jsx';
+import InviteCodes from './InviteCodes.jsx';
 
 /** Unverified members the signed-in user is allowed to verify (HOD: General Secretaries; GS: own branch). */
 function VerificationPanel() {
@@ -85,7 +86,7 @@ function VerificationPanel() {
   );
 }
 
-const ENTITY_LABEL = { member: 'Verification', request: 'Contact requests', event: 'Events', grievance: 'Complaints', archive: 'Archive', account: 'Accounts' };
+const ENTITY_LABEL = { member: 'Verification', request: 'Contact requests', event: 'Events', grievance: 'Complaints', archive: 'Archive', account: 'Accounts', invite: 'Invite codes' };
 const actionLabel = (action) => {
   const [entity, verb] = action.split('.');
   return `${ENTITY_LABEL[entity] || entity}: ${verb.replace(/_/g, ' ')}`;
@@ -245,6 +246,7 @@ export default function AdminDashboard() {
 
   const tabs = [
     ['verify', 'user-check', 'Verification'],
+    ['invites', 'ticket', 'Invite Codes'],
     ...(isAdmin ? [['analytics', 'chart-simple', 'Analytics'], ['audit', 'clock-rotate-left', 'Audit Log'], ['year', 'box-archive', 'Academic Year']] : []),
   ];
 
@@ -253,7 +255,7 @@ export default function AdminDashboard() {
       <div className="sec-head">
         <div className="schip"><span className="schip-ln" />{isAdmin ? 'Admin / HOD' : 'General Secretary'}<span className="schip-ln" /></div>
         <div className="spread">
-          <h1 className="page-title">{isAdmin ? <>Governance <em>Dashboard</em></> : <>Member <em>Verification</em></>}</h1>
+          <h1 className="page-title">{isAdmin ? <>Governance <em>Dashboard</em></> : <>Council <em>Management</em></>}</h1>
           <Badge tone="blue" icon="shield-halved">{user.name}</Badge>
         </div>
       </div>
@@ -269,6 +271,7 @@ export default function AdminDashboard() {
       )}
 
       {tab === 'verify' && <VerificationPanel />}
+      {tab === 'invites' && <InviteCodes />}
       {tab === 'analytics' && isAdmin && <AdminAnalytics />}
       {tab === 'audit' && isAdmin && <AuditLog />}
       {tab === 'year' && isAdmin && <AcademicYear />}

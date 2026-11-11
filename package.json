@@ -12,7 +12,9 @@
     "migrate": "npm --prefix backend run migrate",
     "db:reset": "npm --prefix backend run db:reset",
     "build": "npm --prefix web run build",
-    "test": "npm --prefix backend test"
+    "test": "npm --prefix backend test",
+    "bootstrap": "npm --prefix backend run bootstrap",
+    "start": "npm --prefix backend run start"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

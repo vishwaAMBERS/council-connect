@@ -1,6 +1,7 @@
 // API tests for oversight: analytics, audit log, archive, event reminders.
 process.env.PGLITE_DATA_DIR = 'memory://';
-process.env.DATABASE_URL = '';
+// TEST_DATABASE_URL points the suite at a real PostgreSQL server; by default it uses the in-memory database.
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || '';
 process.env.ANTHROPIC_API_KEY = '';
 process.env.JWT_SECRET = 'test-secret';
 
@@ -124,6 +125,84 @@ test('event reminders: sent once to registered students, only for events within 
   assert.ok(!notes.some((n) => n.title === 'Reminder: CodeGECA Hackathon'), 'the hackathon is days away');
 });
 
+test('invite codes: issued within scope, used once, revocable while unused', async () => {
+  assert.equal((await api('GET', '/invite-codes', { as: 'student' })).status, 403);
+  assert.equal((await api('GET', '/invite-codes/options', { as: 'it_cr3' })).status, 403, 'only admins and General Secretaries');
+
+  // A General Secretary: own council only, and never the GS seat.
+  const gsOptions = (await api('GET', '/invite-codes/options', { as: 'it_gs' })).body;
+  assert.equal(gsOptions.canIssueAdmin, false);
+  assert.deepEqual(gsOptions.councils.map((c) => c.name), ['IT Departmental Council']);
+  assert.ok(!gsOptions.councils[0].positions.some((p) => p.value === 'general_secretary'));
+  const itCouncil = gsOptions.councils[0].id;
+
+  const adminOptions = (await api('GET', '/invite-codes/options', { as: 'hod' })).body;
+  assert.equal(adminOptions.canIssueAdmin, true);
+  assert.equal(adminOptions.councils.length, 9);
+  const cse = adminOptions.councils.find((c) => c.name === 'CSE Departmental Council');
+  const main = adminOptions.councils.find((c) => c.name === 'Main Student Council');
+  assert.ok(main.positions.some((p) => p.value === 'president') && !main.positions.some((p) => p.value === 'general_secretary'));
+
+  const issue = (as, body) => api('POST', '/invite-codes', { as, body });
+  assert.equal((await issue('it_gs', { role: 'admin' })).status, 403);
+  assert.equal((await issue('it_gs', { councilId: cse.id, position: 'cultural_member' })).status, 403, 'another branch');
+  assert.equal((await issue('it_gs', { councilId: itCouncil, position: 'general_secretary' })).status, 400);
+  assert.equal((await issue('hod', { councilId: main.id, position: 'class_representative' })).status, 400, 'not a main-council seat');
+  assert.equal((await issue('hod', { councilId: cse.id, position: 'sports_member', expiresInDays: 0 })).status, 400);
+
+  const issued = await issue('it_gs', { councilId: itCouncil, position: 'sports_member' });
+  assert.equal(issued.status, 201);
+  assert.match(issued.body.code.code, /^IT-[A-Z2-9]{6}$/);
+  assert.equal(issued.body.code.positionTitle, 'Sports Member');
+  assert.equal(issued.body.code.status, 'unused');
+  assert.equal(issued.body.code.termStart.slice(4), '-07-01');
+
+  // The code creates an unverified council account, once.
+  const signup = (email) => api('POST', '/auth/register', {
+    body: { fullName: 'Sports Member', email, password: 'password1', year: 2, inviteCode: issued.body.code.code }
+  });
+  const joined = await signup('it_sportsmem@geca.ac.in');
+  assert.equal(joined.status, 201);
+  assert.equal(joined.body.user.role, 'representative');
+  assert.equal(joined.body.user.canCreateEvents, false, 'unverified until the GS verifies them');
+  assert.equal((await signup('second_try@geca.ac.in')).status, 400);
+
+  const listForGs = (await api('GET', '/invite-codes', { as: 'it_gs' })).body.codes;
+  const used = listForGs.find((c) => c.code === issued.body.code.code);
+  assert.equal(used.status, 'used');
+  assert.equal(used.usedByName, 'Sports Member');
+  assert.ok(listForGs.every((c) => c.councilName === 'IT Departmental Council'), 'a GS sees only their council');
+  assert.equal((await api('DELETE', `/invite-codes/${used.code}`, { as: 'it_gs' })).status, 409, 'used codes stay on record');
+
+  // Admin codes, and revoking an unused one.
+  const adminCode = await issue('hod', { role: 'admin' });
+  assert.match(adminCode.body.code.code, /^ADMIN-/);
+  assert.equal((await api('DELETE', `/invite-codes/${adminCode.body.code.code}`, { as: 'it_gs' })).status, 404, 'not visible to a GS');
+  assert.equal((await api('DELETE', `/invite-codes/${adminCode.body.code.code}`, { as: 'hod' })).status, 200);
+  const afterRevoke = await api('POST', '/auth/register', {
+    body: { fullName: 'Not Admin', email: 'notadmin@geca.ac.in', password: 'password1', inviteCode: adminCode.body.code.code }
+  });
+  assert.equal(afterRevoke.status, 400);
+
+  const logs = (await api('GET', '/audit-logs?entity=invite', { as: 'hod' })).body.logs.map((l) => l.action);
+  assert.ok(logs.includes('invite.created') && logs.includes('invite.revoked'));
+});
+
+test('security: headers are set and repeated sign-in attempts are slowed down', async () => {
+  const health = await fetch(`${base}/health`);
+  assert.equal(health.headers.get('x-content-type-options'), 'nosniff');
+  assert.ok(health.headers.get('strict-transport-security'));
+  assert.equal(health.headers.get('x-powered-by'), null);
+
+  let last;
+  for (let i = 0; i < 31; i += 1) {
+    last = await api('POST', '/auth/login', { body: { email: 'student@geca.ac.in', password: 'wrong-password' } });
+    if (last.status === 429) break;
+  }
+  assert.equal(last.status, 429);
+  assert.match(last.body.error, /Too many sign-in attempts/);
+});
+
 test('archive: browse a past year by branch (criterion 12)', async () => {
   const latest = (await api('GET', '/archive', { as: 'student' })).body;
   assert.deepEqual(latest.years, ['2025-26']);
@@ -148,7 +227,8 @@ test('archive: closing the year snapshots and clears the council', async () => {
   assert.equal((await api('POST', '/archive/run', { as: 'it_gs', body: { academicYear: '2026-27' } })).status, 403);
   assert.equal((await api('POST', '/archive/run', { as: 'hod', body: { academicYear: '2026' } })).status, 400);
   assert.equal((await api('POST', '/archive/run', { as: 'hod', body: { academicYear: '2026-28' } })).status, 400);
-  assert.equal((await api('GET', '/archive/preview', { as: 'hod' })).body.activeProfiles, 20);
+  // 20 seeded members plus the one who joined with an invite code in the test above.
+  assert.equal((await api('GET', '/archive/preview', { as: 'hod' })).body.activeProfiles, 21);
 
   // Give the IT General Secretary something to show in the snapshot.
   const pending = (await api('GET', '/contact-requests/inbox', { as: 'it_gs' })).body.requests.find((r) => r.status === 'pending');
@@ -156,7 +236,7 @@ test('archive: closing the year snapshots and clears the council', async () => {
 
   const run = await api('POST', '/archive/run', { as: 'hod', body: { academicYear: '2026-27' } });
   assert.equal(run.status, 201);
-  assert.equal(run.body.archived, 20);
+  assert.equal(run.body.archived, 21);
 
   // The directory is empty and the seat holders are ordinary students again.
   assert.equal((await api('GET', '/directory', { as: 'student' })).body.members.length, 0);
@@ -169,7 +249,7 @@ test('archive: closing the year snapshots and clears the council', async () => {
   const archive = (await api('GET', '/archive', { as: 'student' })).body;
   assert.deepEqual(archive.years, ['2026-27', '2025-26']);
   assert.equal(archive.year, '2026-27', 'newest year by default');
-  assert.equal(archive.records.length, 20);
+  assert.equal(archive.records.length, 21);
   const gs = (await api('GET', '/archive?year=2026-27&unit=IT', { as: 'student' })).body.records.find((r) => r.fullName === 'Rohan Patil');
   assert.equal(gs.positionTitle, 'General Secretary');
   assert.equal(gs.wasVerified, true);
@@ -181,7 +261,7 @@ test('archive: closing the year snapshots and clears the council', async () => {
   // Nothing left to archive, and the action is in the audit log.
   assert.equal((await api('POST', '/archive/run', { as: 'hod', body: { academicYear: '2026-27' } })).status, 409);
   const logs = (await api('GET', '/audit-logs?entity=archive', { as: 'hod' })).body.logs;
-  assert.match(logs[0].summary, /archived 20 council seats/);
+  assert.match(logs[0].summary, /archived 21 council seats/);
 
   // Existing conversations survive; new requests to former members are refused.
   const thread = (await api('GET', `/contact-requests/${pending.id}/messages`, { as: 'it_gs' }));

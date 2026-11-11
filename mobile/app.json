@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "CouncilConnect",
+    "slug": "councilconnect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "councilconnect",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.ac.geca.councilconnect"
+    },
+    "android": {
+      "package": "in.ac.geca.councilconnect"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-status-bar",
+      "expo-secure-store"
+    ]
+  }
+}

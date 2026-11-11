@@ -9,9 +9,9 @@ management, hostel grievance reporting, lost-and-found, campus
 navigation, analytics, and an archive.
 
 The project is documented as a GECA-focused system. All seven modules
-run on the web app against the live backend; the mobile app is not built
-yet. `docs/PROJECT_PLAN.md` records what each module does and its known
-gaps.
+run on the web app against the live backend, and a mobile app covers the
+student and representative flows. `docs/PROJECT_PLAN.md` records what
+each module does and its known gaps; `docs/DEPLOYMENT.md` covers hosting.
 
 ## Table of Contents
 
@@ -202,7 +202,8 @@ account uses the password `demo1234`:
 
 Invite codes for testing council sign-up: `IT-COTECH-2026`,
 `CSE-SPORTS-2026`, `ADMIN-GECA-2026` (each works once; `npm run
-db:reset` restores them).
+db:reset` restores them). Admins and General Secretaries issue new
+codes from the dashboard's Invite Codes tab.
 
 Other commands:
 
@@ -211,7 +212,9 @@ Other commands:
 -   `npm run build` builds the web app.
 -   `npm test` runs the backend tests.
 -   `npm run dev:mobile` starts Expo (run `npm install` in `mobile/`
-    first).
+    first; see `mobile/README.md` for running it on a phone).
+-   `npm run bootstrap` prepares an empty production database and
+    prints the first admin invite code (see `docs/DEPLOYMENT.md`).
 
 To use a PostgreSQL server such as Supabase, set `DATABASE_URL` in
 `backend/.env`. To enable AI categorisation, set `ANTHROPIC_API_KEY`

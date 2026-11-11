@@ -20,6 +20,20 @@ export const POSITION_TITLES = {
   class_representative: 'Class Representative'
 };
 
+// Which seats exist in which kind of council.
+const MAIN_POSITIONS = [
+  'president', 'co_council_secretary', 'ladies_representative', 'reserved_representative', 'anti_ragging_representative',
+  'technical_secretary', 'cultural_secretary', 'sports_secretary'
+];
+const DEPARTMENTAL_POSITIONS = [
+  'general_secretary', 'co_general_secretary',
+  'technical_secretary', 'co_technical_secretary', 'technical_member',
+  'cultural_secretary', 'co_cultural_secretary', 'cultural_member',
+  'sports_secretary', 'co_sports_secretary', 'sports_member',
+  'class_representative'
+];
+export const positionsForCouncil = (councilType) => (councilType === 'main' ? MAIN_POSITIONS : DEPARTMENTAL_POSITIONS);
+
 // Position-type filter shown in the directory.
 export const POSITION_GROUPS = [
   { key: 'gs', label: 'General Secretary', positions: ['general_secretary', 'co_general_secretary'] },

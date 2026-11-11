@@ -40,3 +40,6 @@ backend/.data/
 
 # Uploaded files (local development)
 backend/uploads/
+
+# Expo build output
+mobile/dist/

@@ -10,7 +10,8 @@
     "test": "node --test",
     "migrate": "node src/db/migrate.js",
     "db:reset": "node src/db/migrate.js --reset && node src/db/seed.js",
-    "seed": "node src/db/seed.js"
+    "seed": "node src/db/seed.js",
+    "bootstrap": "node src/db/bootstrap.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.7.0",
@@ -19,6 +20,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.4",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.5.0",

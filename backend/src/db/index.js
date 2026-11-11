@@ -7,14 +7,42 @@ import { config } from '../config/env.js';
 
 let client;
 
+/**
+ * TLS for the PostgreSQL connection, from DATABASE_SSL:
+ *   off        no TLS (the default for a database on this machine)
+ *   require    TLS with certificate verification (the default for any other host)
+ *   no-verify  TLS without verifying the certificate; only for providers whose certificate
+ *              chain is not in the system trust store, and only if you accept that risk
+ */
+function sslOption() {
+  const local = /@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(config.db.url);
+  const mode = config.db.ssl || (local ? 'off' : 'require');
+  if (mode === 'off') return false;
+  if (mode === 'no-verify') return { rejectUnauthorized: false };
+  if (mode === 'require') return { rejectUnauthorized: true };
+  throw new Error(`DATABASE_SSL must be off, require or no-verify (got "${mode}")`);
+}
+
 async function connect() {
   if (config.db.url) {
     const { default: pg } = await import('pg');
-    const pool = new pg.Pool({ connectionString: config.db.url });
+    const pool = new pg.Pool({ connectionString: config.db.url, ssl: sslOption() });
     return {
       kind: 'postgres',
       query: (text, params) => pool.query(text, params),
-      exec: (sql) => pool.query(sql),
+      // Scripts (migrations) run on one dedicated connection. If a script fails part-way through a
+      // transaction, it is rolled back on that same connection before the connection is reused.
+      exec: async (sql) => {
+        const connection = await pool.connect();
+        try {
+          return await connection.query(sql);
+        } catch (error) {
+          await connection.query('ROLLBACK').catch(() => {});
+          throw error;
+        } finally {
+          connection.release();
+        }
+      },
       close: () => pool.end()
     };
   }
