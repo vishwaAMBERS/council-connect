@@ -121,7 +121,7 @@ export default function Home() {
           <div className="row" style={{ gap: 10 }}>
             <Link to="/grievances/new" className="btn-prim btn-sm"><i className="fas fa-plus" /> File a Complaint</Link>
             <Link to="/events" className="btn-out btn-sm"><i className="fas fa-calendar-plus" /> Find Events</Link>
-            <Link to="/lost-found/new" className="btn-out btn-sm"><i className="fas fa-plus" /> Report Lost Item</Link>
+            <Link to="/lost-found" className="btn-out btn-sm"><i className="fas fa-plus" /> Report Lost Item</Link>
             <Link to="/campus-map" className="btn-out btn-sm"><i className="fas fa-location-dot" /> Navigate Campus</Link>
           </div>
         </div>

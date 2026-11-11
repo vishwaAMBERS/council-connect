@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { initials as toInitials, CATEGORY_META } from '../lib/format.js';
+import { api, assetUrl } from '../api/client.js';
 
 /* ---------- Buttons ---------- */
 export function Button({ variant = 'prim', size, lg, sm, children, ...props }) {
@@ -279,6 +280,10 @@ export const STATUS_TONE = {
   approved: 'green',
   declined: 'red',
   open: 'blue',
+  submitted: 'blue',
+  assigned: 'blue',
+  matched: 'green',
+  critical: 'red',
   in_progress: 'gold',
   resolved: 'green',
   escalated: 'red',
@@ -295,18 +300,61 @@ export function statusLabel(s) {
 }
 
 /* ---------- Governance helpers ---------- */
-export function InitialsAvatar({ name, size = 92, fontSize = '1.7rem', style }) {
+/** Profile photo when `src` (an upload path) is set, otherwise the person's initials. */
+export function InitialsAvatar({ name, src, size = 92, fontSize = '1.7rem', style }) {
   return (
     <div
       style={{
-        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize,
         color: 'var(--blue-dark)', background: 'var(--blue-light)',
         ...style,
       }}
     >
-      {toInitials(name)}
+      {src ? <img src={assetUrl(src)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : toInitials(name)}
+    </div>
+  );
+}
+
+/**
+ * Image picker that uploads as soon as a file is chosen.
+ * `value` is the stored upload path (or null); `onChange` receives the new path or null.
+ */
+export function ImageInput({ value, onChange, onBusy }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const pick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    onBusy?.(true);
+    setError(null);
+    try {
+      onChange(await api.upload(file));
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+      onBusy?.(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+        {value && (
+          <img src={assetUrl(value)} alt="Selected upload" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 12, border: '1px solid var(--border)' }} />
+        )}
+        <input type="file" className="input" accept="image/png,image/jpeg,image/webp" onChange={pick} disabled={busy} />
+        {value && !busy && (
+          <button type="button" className="btn-ghost btn-sm" onClick={() => onChange(null)}>Remove</button>
+        )}
+      </div>
+      {busy && <span className="faint" style={{ fontSize: '11px' }}><i className="fas fa-circle-notch fa-spin" style={{ marginRight: 6 }} />Uploading…</span>}
+      {error && <span style={{ fontSize: '11px', color: '#c0392b', fontWeight: 600 }}>{error.message}</span>}
     </div>
   );
 }

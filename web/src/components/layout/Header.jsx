@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { initials } from '../../lib/format.js';
+import { assetUrl } from '../../api/client.js';
+import NotificationBell from './NotificationBell.jsx';
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -36,12 +38,15 @@ export default function Header() {
         <div className="h-right">
           {user ? (
             <>
+              <NotificationBell />
               <button
                 className="h-avatar"
                 title={user.name}
+                aria-label="My profile"
                 onClick={() => navigate('/profile')}
+                style={{ overflow: 'hidden', padding: 0 }}
               >
-                {initials(user.name)}
+                {user.avatarUrl ? <img src={assetUrl(user.avatarUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(user.name)}
               </button>
               <button
                 className="btn-out btn-sm"
@@ -70,7 +75,7 @@ export default function Header() {
         <div className="row" style={{ justifyContent: 'center' }}>
           {user ? (
             <>
-              <button className="h-avatar" title={user.name} onClick={() => navigate('/profile')}>
+              <button className="h-avatar" title={user.name} aria-label="My profile" onClick={() => navigate('/profile')}>
                 {initials(user.name)}
               </button>
               <button

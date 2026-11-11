@@ -8,11 +8,11 @@ and the database progress report (originals in `docs/reports/` and the team's do
 
 | Area | State |
 | --- | --- |
-| Web (`web/`) | Auth, directory, profiles, contact requests, messaging and verification run on the live API. Events, grievances, lost & found, map and analytics still use demo data (labelled). |
-| Backend (`backend/`) | Express + PostgreSQL. Governance core complete with role checks and API tests. No operations modules yet. |
-| Database (`database/`) | Migrations 001 (identity, councils) and 002 (invite codes, verification log, contact requests, messages), plus demo seed data. The earlier MySQL work is kept in `legacy-mysql/` as reference. |
+| Web (`web/`) | Every module except admin analytics runs on the live API: governance, events, grievances, lost & found, map, notifications. Admin analytics still shows demo data (labelled). |
+| Backend (`backend/`) | Express + PostgreSQL. Governance core and campus operations complete, with role checks and 19 API tests. |
+| Database (`database/`) | Migrations 001 (identity, councils), 002 (governance) and 003 (campus operations), plus demo seed data. The earlier MySQL work is kept in `legacy-mysql/` as reference. |
 | Mobile (`mobile/`) | Expo shell with login and home screens only. |
-| AI | Contact-request categorisation: Claude API when `ANTHROPIC_API_KEY` is set, keyword rules otherwise. |
+| AI | Contact-request categorisation and grievance category + priority: Claude API when `ANTHROPIC_API_KEY` is set, keyword rules otherwise. Lost & found matching is keyword similarity. |
 
 ## 2. Decisions
 
@@ -112,20 +112,38 @@ Done when Phase 1 criteria 1–7 pass in a live demo against the real database.
 Notes and known gaps:
 - Demo accounts are seeded on first start in development; all use the password `demo1234` (see the README).
 - The admin is institution-wide (one HOD-level role); per-department admins are not modelled.
-- Profile photo upload (F-03) is not built yet; initials avatars are used. It moves to Checklist 2 with file uploads.
 - Admin analytics still shows demo data and is labelled as such.
 
-### Checklist 2 — Campus operations on web
+### Checklist 2 — Campus operations on web (done)
 
-- [ ] Profile photo upload (carried over from F-03) and shared file-upload endpoint
-- [ ] Events: tables, create (verified reps only, branch scope, poster upload), list, register once, participant list, attendance mark (criterion 8)
-- [ ] Grievances: submit with room and photo, AI category + priority, status flow submitted → assigned → in progress → resolved / escalated, history, manual + timed escalation (criterion 9)
-- [ ] Lost & found: post lost/found, similarity matching, match notification, in-app contact (criterion 10)
-- [ ] Campus map: locations table, department/hostel/office markers, event venues pinned (criterion 11)
-- [ ] In-app notifications for request, grievance and match updates
+- [x] `003_operations.sql`: campus_locations, events, event_registrations, grievances, grievance_history, lost_found_items, lost_found_matches, match_messages, notifications; demo seed data
+- [x] Image uploads (`POST /uploads`, PNG/JPEG/WebP up to 5 MB, checked by content) and profile photo (carried over from F-03)
+- [x] Events: verified representatives and admins create (branch scope, capacity, poster, optional map location); students register once and can cancel; organiser sees participants and marks attendance (criterion 8)
+- [x] Grievances: submit with room and photo; AI category + priority; submitted → assigned → in progress → resolved; history timeline; timed escalation (12/24/48/72 h by priority) and manual escalation to the HOD (criterion 9)
+- [x] Lost & found: post lost/found, automatic matching, notification to both parties, private match thread, mark resolved (criterion 10)
+- [x] Campus map: locations table; department, hostel, office, venue and facility markers; upcoming events and open lost/found reports pinned to their place (criterion 11)
+- [x] In-app notifications (header bell): contact requests and replies, messages, verification, grievance updates and escalations, lost & found matches
+
+**Result (11 Nov 2026).** `npm test` passes 19 API tests. Live run in the browser against the seeded database:
+
+| # | Criterion | Result |
+| --- | --- | --- |
+| 8 | Student registers for an event and appears in the event's participant list | Pass |
+| 9 | Student submits a hostel complaint; it is categorised and appears in the tracker | Pass (keyword rules; Claude API path untested, no key configured) |
+| 10 | A lost-item post generates a match notification when a similar found item exists | Pass |
+| 11 | The map loads with department, hostel and event-venue markers | Pass |
+
+Notes and known gaps:
+- **Grievance handling model.** Any verified representative or admin can take an open complaint. After escalation (timed or by the student) only admins handle it. This is a two-level chain; the Phase 2 PRD's four-level chain (CR → Secretary → GS → HOD) and hostel staff roles (rector, warden) are not modelled.
+- **Lost & found matching is keyword similarity** (word overlap on title and description, plus a same-place bonus), not an embedding or LLM model. The report calls this "semantic matching"; either describe it accurately in the report or upgrade it later.
+- **Map coordinates are approximate** placements around the campus centre (`backend/src/db/seedOperations.js`). Replace with surveyed positions before a real deployment. Route guidance is not built.
+- **Not built:** event reminder notifications, push notifications (in-app only), saving events.
+- **Uploads are stored on local disk** (`backend/uploads/`), to move to Supabase Storage in Checklist 5.
+- Not checked in the browser: the create-event form, photo upload, the notification dropdown, and visual layout (the checks read page content, not screenshots). They are covered by API tests where an API is involved.
 
 ### Checklist 3 — Analytics, archive, audit
 
+- [ ] Event reminder notifications before an event starts
 - [ ] Admin dashboard on live queries: council/verification counts, request volume and response time, category split, event registrations, grievance resolution and escalations
 - [ ] Archive: admin "start new academic year" snapshots and deactivates council profiles; browser by year and unit (criterion 12)
 - [ ] Audit log viewer

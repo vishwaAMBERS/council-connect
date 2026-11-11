@@ -32,15 +32,16 @@ export const SESSION_EXPIRED_EVENT = 'cc:session-expired';
 
 async function request(method, path, body) {
   const token = getToken();
+  const isForm = body instanceof FormData;
   let response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
       method,
       headers: {
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError('Cannot reach the server. Check that the backend is running.', 0, null);
@@ -60,4 +61,14 @@ export const api = {
   get: (path) => request('GET', path),
   post: (path, body = {}) => request('POST', path, body),
   patch: (path, body = {}) => request('PATCH', path, body),
+  del: (path) => request('DELETE', path),
+  /** Uploads one image and resolves to its stored path, e.g. "/uploads/<id>.png". */
+  upload: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await request('POST', '/uploads', form)).url;
+  },
 };
+
+/** Full URL for a stored upload path returned by the API (or null). */
+export const assetUrl = (path) => (path ? `${API_BASE}${path}` : null);

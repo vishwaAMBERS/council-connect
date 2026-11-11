@@ -1,109 +1,181 @@
-import React, { useState, useSyncExternalStore } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Badge, Chip, Button, Modal, Field, useToast, Reveal, Card, DemoDataNote } from '../components/ui.jsx';
-import { eventList, subscribe } from '../data/store.js';
+import { Badge, Chip, Button, Modal, useToast, Card, EmptyState, ErrorNote, Loading, Table } from '../components/ui.jsx';
+import { useApi } from '../hooks/useApi.js';
+import { api, assetUrl } from '../api/client.js';
+import { formatDateTime } from '../lib/format.js';
 import { colors } from '../theme/theme.js';
+
+const seats = (e) => (e.capacity ? `${e.registrationCount}/${e.capacity}` : `${e.registrationCount} registered`);
+
+function EventMeta({ event }) {
+  return (
+    <div className="muted" style={{ fontSize: '0.78rem', lineHeight: 1.8 }}>
+      <div><i className="fas fa-calendar-day" style={{ color: colors.blue, width: 16, marginRight: 6 }} />{formatDateTime(event.startsAt)}</div>
+      <div><i className="fas fa-location-dot" style={{ color: colors.blue, width: 16, marginRight: 6 }} />{event.venue}</div>
+      <div>
+        <i className="fas fa-user-tie" style={{ color: colors.blue, width: 16, marginRight: 6 }} />
+        {event.organizer.fullName}{event.organizer.positionTitle ? ` · ${event.organizer.positionTitle}` : ''}
+      </div>
+    </div>
+  );
+}
+
+/** Detail view; organisers and admins also see who registered and can mark attendance. */
+function EventDetail({ eventId, onClose, onChanged }) {
+  const { user } = useAuth();
+  const toast = useToast();
+  const detail = useApi(`/events/${eventId}`);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const event = detail.data?.event;
+  const participants = detail.data?.participants;
+
+  const act = async (action, message) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      if (message) toast(message, 'success');
+      await detail.reload();
+      onChanged();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={event?.title || 'Event'}>
+      <ErrorNote error={error || detail.error} />
+      {!event ? (
+        !detail.error && <Loading />
+      ) : (
+        <>
+          {event.posterUrl && (
+            <img src={assetUrl(event.posterUrl)} alt={`Poster for ${event.title}`} style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 14, marginBottom: 14 }} />
+          )}
+          <div className="row" style={{ marginBottom: 12, gap: 6, flexWrap: 'wrap' }}>
+            <Badge tone="blue" icon="users">{seats(event)}</Badge>
+            <Badge tone="gray" icon="bullhorn">{event.branchScope === 'own_branch' && event.unit ? `${event.unit.code} only` : 'All branches'}</Badge>
+            {event.isPast && <Badge tone="gray">Finished</Badge>}
+            {event.isFull && !event.isPast && <Badge tone="gold">Full</Badge>}
+          </div>
+          <p style={{ fontSize: '0.86rem', color: colors.charcoalSoft, lineHeight: 1.7, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginBottom: 12 }}>{event.description}</p>
+          <EventMeta event={event} />
+
+          {user.role === 'student' && !event.isPast && (
+            <div className="row" style={{ marginTop: 16 }}>
+              {event.isRegistered ? (
+                <>
+                  <Badge tone="green" icon="check">You are registered</Badge>
+                  <Button variant="ghost" size="sm" disabled={busy} onClick={() => act(() => api.del(`/events/${event.id}/register`), 'Registration cancelled')}>
+                    Cancel registration
+                  </Button>
+                </>
+              ) : (
+                <Button disabled={busy || event.isFull} onClick={() => act(() => api.post(`/events/${event.id}/register`), 'You are registered')}>
+                  <i className="fas fa-user-check" /> {event.isFull ? 'Event is full' : 'Register'}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {participants && (
+            <div style={{ marginTop: 18 }}>
+              <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1rem', marginBottom: 8 }}>
+                Participants ({participants.length}{participants.length ? `, ${participants.filter((p) => p.attended).length} attended` : ''})
+              </h3>
+              {participants.length === 0 ? (
+                <p className="faint" style={{ fontSize: '0.8rem' }}>Nobody has registered yet.</p>
+              ) : (
+                <Table head={['Student', 'Branch', 'Attended']} minWidth={320}>
+                  {participants.map((p) => (
+                    <tr key={p.id}>
+                      <td>{p.fullName}</td>
+                      <td>{[p.unitCode, p.year && `Year ${p.year}`].filter(Boolean).join(' · ')}</td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={p.attended}
+                          disabled={busy}
+                          aria-label={`${p.fullName} attended`}
+                          onChange={(e) => act(() => api.patch(`/events/${event.id}/attendance`, { studentId: p.id, attended: e.target.checked }))}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </Modal>
+  );
+}
 
 export default function Events() {
   const { user } = useAuth();
-  const toast = useToast();
-  const events = useSyncExternalStore(subscribe, () => eventList);
   const [tab, setTab] = useState('upcoming');
-  const [sel, setSel] = useState(null);
-  const [regs, setRegs] = useState(events.map((e) => e.registered));
-
-  const isRep = user?.role === 'representative' || user?.role === 'admin';
-
-  const toggleSave = (id) => toast('Saved to your events', 'success');
-  const register = (i) => {
-    setRegs((r) => r.map((x, idx) => (idx === i ? true : x)));
-    toast('Registered for event!', 'success');
-  };
-
-  const list = tab === 'saved' ? events.filter((e) => e.saved) : events;
+  const [openId, setOpenId] = useState(null);
+  const list = useApi(tab === 'past' ? '/events?when=past' : '/events');
+  const all = list.data?.events || [];
+  const events = tab === 'mine' ? all.filter((e) => e.isRegistered || e.organizer.id === user.id) : all;
 
   return (
     <div className="wrap">
-      <DemoDataNote />
       <div className="sec-head">
         <div className="schip"><span className="schip-ln" />Campus Operations<span className="schip-ln" /></div>
         <div className="spread">
-          <h1 className="page-title">Event <em>Management</em></h1>
-          {isRep && (
-            <Link to="/events/new" className="btn-prim">
-              <i className="fas fa-plus" /> Create Event
-            </Link>
+          <h1 className="page-title">Campus <em>Events</em></h1>
+          {user.canCreateEvents && (
+            <Link to="/events/new" className="btn-prim"><i className="fas fa-plus" /> Create Event</Link>
           )}
         </div>
       </div>
 
       <div className="tabs" style={{ marginBottom: '1.5rem' }}>
-        <button className={`tab ${tab === 'upcoming' ? 'active' : ''}`} onClick={() => setTab('upcoming')}>
-          <i className="fas fa-calendar" style={{ marginRight: 6 }} /> All Events
-        </button>
-        <button className={`tab ${tab === 'saved' ? 'active' : ''}`} onClick={() => setTab('saved')}>
-          <i className="fas fa-bookmark" style={{ marginRight: 6 }} /> Saved
-        </button>
-      </div>
-
-      <div className="grid-3">
-        {list.map((e, i) => (
-          <Reveal key={e.id} delay={`sr-d${(i % 4) + 1}`}>
-            <Card accent pad style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Badge tone="blue" icon="star">{e.tag}</Badge>
-                <button
-                  onClick={() => toggleSave(e.id)}
-                  style={{ background: 'none', border: 'none', fontSize: '1.05rem', cursor: 'pointer', color: e.saved ? colors.gold : colors.charcoalFaint }}
-                  aria-label="Save"
-                >
-                  <i className={e.saved ? 'fas fa-bookmark' : 'far fa-bookmark'} />
-                </button>
-              </div>
-              <div className="card-title" style={{ marginTop: 12 }}>{e.title}</div>
-              <div className="muted" style={{ fontSize: '0.76rem', lineHeight: 1.7, flex: 1 }}>
-                <div><i className="fas fa-calendar-day" style={{ color: colors.blue, width: 16, marginRight: 6 }} />{e.date}</div>
-                <div><i className="fas fa-location-dot" style={{ color: colors.blue, width: 16, marginRight: 6 }} />{e.venue}</div>
-                <div><i className="fas fa-user-tie" style={{ color: colors.blue, width: 16, marginRight: 6 }} />{e.organizer}</div>
-              </div>
-              <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
-                <Chip icon="users">{e.registrations}/{e.capacity}</Chip>
-                <div className="row">
-                  <Button variant="out" size="sm" onClick={() => setSel(e)}>Details</Button>
-                  {regs[i] ? (
-                    <Badge tone="green"><i className="fas fa-check" /> Registered</Badge>
-                  ) : (
-                    <Button size="sm" onClick={() => register(i)}>Register</Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          </Reveal>
+        {[['upcoming', 'calendar', 'Upcoming'], ['mine', 'user-check', user.role === 'student' ? 'My Registrations' : 'My Events'], ['past', 'clock-rotate-left', 'Past']].map(([key, icon, label]) => (
+          <button key={key} className={`tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>
+            <i className={`fas fa-${icon}`} style={{ marginRight: 6 }} /> {label}
+          </button>
         ))}
       </div>
 
-      {/* Detail modal */}
-      <Modal open={!!sel} onClose={() => setSel(null)} title={sel?.title}>
-        {sel && (
-          <>
-            <div className="row" style={{ marginBottom: 12 }}>
-              <Badge tone="blue" icon="star">{sel.tag}</Badge>
-              <Chip icon="users">{sel.registrations} registered</Chip>
-            </div>
-            <p style={{ fontSize: '0.84rem', color: colors.charcoalSoft, lineHeight: 1.7 }}>{sel.desc}</p>
-            <div className="muted" style={{ fontSize: '0.78rem', marginTop: 12 }}>
-              <div><i className="fas fa-calendar-day" style={{ color: colors.blue, width: 16, marginRight: 6 }} />{sel.date}</div>
-              <div><i className="fas fa-location-dot" style={{ color: colors.blue, width: 16, marginRight: 6 }} />{sel.venue}</div>
-              <div><i className="fas fa-user-tie" style={{ color: colors.blue, width: 16, marginRight: 6 }} />Organized by {sel.organizer}</div>
-            </div>
-            <div className="row" style={{ marginTop: 16 }}>
-              <Button onClick={() => { setSel(null); toast('Registered!', 'success'); }}><i className="fas fa-user-check" /> Register Now</Button>
-              <Button variant="ghost" onClick={() => setSel(null)}><i className="fas fa-bookmark" /> Save Event</Button>
-            </div>
-          </>
-        )}
-      </Modal>
+      <ErrorNote error={list.error} onRetry={list.reload} />
+      {list.loading && !list.data ? (
+        <Loading label="Loading events…" />
+      ) : events.length === 0 && !list.error ? (
+        <EmptyState
+          icon="calendar-xmark"
+          title={tab === 'mine' ? 'Nothing here yet' : tab === 'past' ? 'No past events' : 'No upcoming events'}
+          desc={tab === 'mine' && user.role === 'student' ? 'Events you register for appear here.' : undefined}
+        />
+      ) : (
+        <div className="grid-3">
+          {events.map((e) => (
+            <Card accent pad key={e.id} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div className="spread" style={{ alignItems: 'flex-start', gap: 8 }}>
+                <Badge tone="gray" icon="bullhorn">{e.branchScope === 'own_branch' && e.unit ? `${e.unit.code} only` : 'All branches'}</Badge>
+                {e.isRegistered && <Badge tone="green" icon="check">Registered</Badge>}
+              </div>
+              <div className="card-title" style={{ marginTop: 12 }}>{e.title}</div>
+              <div style={{ flex: 1, margin: '6px 0 12px' }}><EventMeta event={e} /></div>
+              <div className="spread">
+                <Chip icon="users">{seats(e)}</Chip>
+                <Button variant={e.canManage ? 'out' : 'prim'} size="sm" onClick={() => setOpenId(e.id)}>
+                  {e.canManage ? 'Manage' : user.role === 'student' && !e.isPast && !e.isRegistered ? 'View & Register' : 'Details'}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {openId && <EventDetail eventId={openId} onClose={() => setOpenId(null)} onChanged={list.reload} />}
     </div>
   );
 }

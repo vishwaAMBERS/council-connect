@@ -37,3 +37,6 @@ backend/.data/
 
 # Vite cache
 .vite/
+
+# Uploaded files (local development)
+backend/uploads/

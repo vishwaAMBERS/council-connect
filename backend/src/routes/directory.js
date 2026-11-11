@@ -4,6 +4,7 @@ import { HttpError, h, isUuid, str } from '../lib/http.js';
 import { requireAuth, publicUser, findUserById } from '../lib/auth.js';
 import { POSITION_GROUPS } from '../lib/positions.js';
 import { PROFILE_SELECT, publicProfile, verificationScope, verifyDenialReason } from '../services/council.js';
+import { optionalUploadUrl } from './uploads.js';
 
 const router = express.Router();
 const DECLINE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -76,12 +77,22 @@ router.get('/users/:id', requireAuth, h(async (req, res) => {
   res.json({ user, councilProfiles, isSelf, contact });
 }));
 
-// Owner-only profile edit (about, max 200 characters).
+// Owner-only profile edit: about (max 200 characters) and/or profile photo.
 router.patch('/users/me', requireAuth, h(async (req, res) => {
-  if (typeof req.body?.about !== 'string') throw new HttpError(400, 'About text is required');
-  const about = req.body.about.trim();
-  if (about.length > 200) throw new HttpError(400, 'About must be 200 characters or fewer');
-  await query('UPDATE users SET about = $2, updated_at = now() WHERE id = $1', [req.user.id, about || null]);
+  const body = req.body || {};
+  const hasAbout = typeof body.about === 'string';
+  const hasAvatar = Object.hasOwn(body, 'avatarUrl');
+  if (!hasAbout && !hasAvatar) throw new HttpError(400, 'Nothing to update');
+
+  if (hasAbout) {
+    const about = body.about.trim();
+    if (about.length > 200) throw new HttpError(400, 'About must be 200 characters or fewer');
+    await query('UPDATE users SET about = $2, updated_at = now() WHERE id = $1', [req.user.id, about || null]);
+  }
+  if (hasAvatar) {
+    // null or '' removes the photo.
+    await query('UPDATE users SET avatar_url = $2, updated_at = now() WHERE id = $1', [req.user.id, optionalUploadUrl(body.avatarUrl, 'Photo')]);
+  }
   res.json({ user: publicUser(await findUserById(req.user.id)) });
 }));
 

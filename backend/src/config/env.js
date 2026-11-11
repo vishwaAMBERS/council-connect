@@ -11,6 +11,8 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   jwtSecret: process.env.JWT_SECRET || 'development-secret',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  // Uploaded images are kept on local disk for now (Supabase Storage at deploy).
+  uploadsDir: path.resolve(backendRoot, process.env.UPLOADS_DIR || 'uploads'),
   db: {
     // Set DATABASE_URL to use a real PostgreSQL server (e.g. Supabase).
     // Leave it empty to use the embedded PGlite database stored in dataDir.

@@ -3,14 +3,21 @@ import bcrypt from 'bcryptjs';
 import { query } from '../db/index.js';
 import { HttpError, h, str } from '../lib/http.js';
 import { signToken, requireAuth, publicUser, findUserByEmail, findUserById } from '../lib/auth.js';
-import { verificationScope } from '../services/council.js';
+import { verificationScope, hasVerifiedSeat } from '../services/council.js';
 
 const router = express.Router();
 
 /** The signed-in user as the clients see it, including whether they may verify council members. */
 async function sessionUser(user) {
   const scope = await verificationScope(user);
-  return { ...publicUser(user), canVerify: scope.admin || scope.gsCouncilIds.length > 0 };
+  // Verified representatives and admins publish events and handle grievances.
+  const trusted = user.role === 'admin' || (user.role === 'representative' && (await hasVerifiedSeat(user.id)));
+  return {
+    ...publicUser(user),
+    canVerify: scope.admin || scope.gsCouncilIds.length > 0,
+    canCreateEvents: trusted,
+    canHandleGrievances: trusted
+  };
 }
 
 router.post('/login', h(async (req, res) => {

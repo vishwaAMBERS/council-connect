@@ -8,6 +8,11 @@ import authRoutes from './routes/auth.js';
 import directoryRoutes from './routes/directory.js';
 import contactRequestRoutes from './routes/contactRequests.js';
 import verificationRoutes from './routes/verification.js';
+import uploadRoutes from './routes/uploads.js';
+import eventRoutes from './routes/events.js';
+import grievanceRoutes from './routes/grievances.js';
+import lostFoundRoutes from './routes/lostFound.js';
+import campusRoutes from './routes/campus.js';
 
 export function createApp({ logRequests = true } = {}) {
   const app = express();
@@ -25,10 +30,22 @@ export function createApp({ logRequests = true } = {}) {
     }
   }));
 
+  // Uploaded images. They are served as plain files; nosniff stops a browser treating one as a page.
+  app.use('/uploads', express.static(config.uploadsDir, {
+    index: false,
+    maxAge: '7d',
+    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff')
+  }));
+
   app.use('/auth', authRoutes);
+  app.use('/events', eventRoutes);
+  app.use('/grievances', grievanceRoutes);
+  app.use('/lost-found', lostFoundRoutes);
+  app.use(uploadRoutes); // /uploads (POST)
   app.use('/contact-requests', contactRequestRoutes);
   app.use(directoryRoutes); // /meta, /directory, /users
   app.use(verificationRoutes); // /council-profiles, /verification
+  app.use(campusRoutes); // /locations, /map, /notifications
 
   app.use(notFound);
   app.use(errorHandler);

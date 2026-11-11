@@ -37,6 +37,15 @@ export function publicProfile(row) {
   };
 }
 
+/** True when the user holds at least one active, verified council seat. */
+export async function hasVerifiedSeat(userId) {
+  const rows = (await query(
+    'SELECT 1 FROM council_profiles WHERE user_id = $1 AND is_active AND is_verified LIMIT 1',
+    [userId]
+  )).rows;
+  return rows.length > 0;
+}
+
 /**
  * Who the actor may verify:
  *  - an admin (HOD level) verifies General Secretaries and main-council members;

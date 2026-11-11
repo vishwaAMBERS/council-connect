@@ -4,6 +4,7 @@ import { query } from '../db/index.js';
 import { HttpError, h, isUuid, str } from '../lib/http.js';
 import { requireAuth } from '../lib/auth.js';
 import { categoriseInBackground } from '../services/categoriser.js';
+import { notify } from '../services/notify.js';
 import { DECLINE_COOLDOWN_MS } from './directory.js';
 
 const router = express.Router();
@@ -90,6 +91,9 @@ router.post('/', h(async (req, res) => {
 
   // Saved first; the AI category is attached afterwards and never blocks the student.
   categoriseInBackground(created.id, reasonTitle, description);
+  await notify(toUserId, {
+    type: 'contact_request', title: `New contact request from ${req.user.full_name}`, body: reasonTitle, link: `/messages?request=${created.id}`
+  });
 
   const row = (await query(`${REQUEST_SELECT} WHERE r.id = $1`, [created.id])).rows[0];
   res.status(201).json({ request: publicRequest(row) });
@@ -127,6 +131,9 @@ for (const [action, status] of [['approve', 'approved'], ['decline', 'declined']
       [row.id, status, req.user.id]
     )).rows[0];
     if (!updated) throw new HttpError(409, `This request was already ${row.status}`);
+    await notify(row.from_id, {
+      type: 'contact_request', title: `${row.to_name} ${status} your contact request`, body: row.reason_title, link: `/messages?request=${row.id}`
+    });
 
     res.json({ request: publicRequest((await query(`${REQUEST_SELECT} WHERE r.id = $1`, [row.id])).rows[0]) });
   }));
@@ -156,6 +163,9 @@ router.post('/:id/messages', h(async (req, res) => {
     'INSERT INTO messages (request_id, sender_id, content) VALUES ($1, $2, $3) RETURNING id, sender_id, content, sent_at',
     [row.id, req.user.id, content]
   )).rows[0];
+  await notify(row.from_id === req.user.id ? row.to_id : row.from_id, {
+    type: 'message', title: `New message from ${req.user.full_name}`, body: content, link: `/messages?request=${row.id}`
+  });
   res.status(201).json({ message: { id: m.id, senderId: m.sender_id, content: m.content, sentAt: m.sent_at } });
 }));
 

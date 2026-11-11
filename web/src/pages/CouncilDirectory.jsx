@@ -67,6 +67,7 @@ export default function CouncilDirectory() {
                 <Card accent pad style={{ height: '100%', textAlign: 'center' }}>
                   <InitialsAvatar
                     name={m.fullName}
+                    src={m.avatarUrl}
                     style={{ margin: '0 auto 14px', border: '4px solid #fff', boxShadow: '0 8px 28px rgba(0,0,0,.1), 0 0 0 6px rgba(34,102,237,.06)' }}
                   />
                   <div className="card-title">{m.fullName}</div>

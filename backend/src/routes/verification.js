@@ -4,6 +4,7 @@ import { query } from '../db/index.js';
 import { HttpError, h, isUuid } from '../lib/http.js';
 import { requireAuth, requireRole } from '../lib/auth.js';
 import { PROFILE_SELECT, publicProfile, verificationScope, verifyDenialReason } from '../services/council.js';
+import { notify } from '../services/notify.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -30,6 +31,11 @@ router.post('/council-profiles/:id/verify', h(async (req, res) => {
      VALUES ($1, $2, $3, $4, $5)`,
     [profile.profile_id, profile.user_id, req.user.id, profile.position_title, profile.council_name]
   );
+
+  await notify(profile.user_id, {
+    type: 'verification', title: 'Your council position was verified',
+    body: `${profile.position_title}, verified by ${req.user.full_name}`, link: '/profile'
+  });
 
   const fresh = (await query(`${PROFILE_SELECT} WHERE cp.id = $1`, [profile.profile_id])).rows[0];
   res.json({ profile: publicProfile(fresh) });

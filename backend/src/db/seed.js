@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { query, closeDb } from './index.js';
 import { migrate } from './migrate.js';
 import { POSITION_TITLES } from '../lib/positions.js';
+import { seedOperations } from './seedOperations.js';
 
 export const DEMO_PASSWORD = 'demo1234';
 
@@ -68,7 +69,7 @@ const INVITES = [
 
 const one = async (text, params) => (await query(text, params)).rows[0];
 
-export async function seed({ log = console.log } = {}) {
+async function seedCore({ log = console.log } = {}) {
   if (await one('SELECT 1 AS x FROM institutions LIMIT 1')) return false;
 
   const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
@@ -162,6 +163,13 @@ export async function seed({ log = console.log } = {}) {
 
   log(`seeded demo data (${Object.keys(userId).length} users, password "${DEMO_PASSWORD}")`);
   return true;
+}
+
+/** Seeds whatever is still empty: core governance data, then the campus-operations data. */
+export async function seed(options = {}) {
+  const core = await seedCore(options);
+  const operations = await seedOperations(options);
+  return core || operations;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

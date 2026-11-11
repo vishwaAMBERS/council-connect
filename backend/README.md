@@ -7,9 +7,10 @@ Express REST API on PostgreSQL. Run everything from the repository root (`npm ru
 - `src/config/env.js` — configuration from `backend/.env`
 - `src/db/` — database access (`query`, `exec`), migration runner, demo seed
 - `src/lib/` — auth middleware, HTTP helpers, council positions
-- `src/services/` — verification hierarchy, contact-request categoriser
+- `src/services/` — verification hierarchy, AI labelling (requests, grievances), lost-and-found matching, notifications
 - `src/routes/` — API routes
 - `test/` — API tests (`npm test`, in-memory database)
+- `uploads/` — uploaded images in local development (not committed)
 
 ## Endpoints
 
@@ -29,5 +30,20 @@ Express REST API on PostgreSQL. Run everything from the repository root (`npm ru
 | POST | `/council-profiles/:id/verify` | admin (General Secretaries, main council) or verified GS (own branch) |
 | GET | `/verification/pending` | anyone who can verify |
 | GET | `/verification/logs` | admin |
+| POST | `/uploads` | signed in (one image in the `file` field) |
+| GET | `/events?when=past`, `/events/:id` | signed in (branch scope applies) |
+| POST | `/events` | verified representative or admin |
+| POST, DELETE | `/events/:id/register` | student |
+| PATCH | `/events/:id/attendance` | organiser or admin |
+| POST | `/grievances` | student |
+| GET | `/grievances`, `/grievances/:id` | the student who raised it; verified representatives and admins see all |
+| POST | `/grievances/:id/take`, `/start`, `/resolve` | verified representative or admin (admins only once escalated) |
+| POST | `/grievances/:id/escalate` | the student who raised it |
+| GET, POST | `/lost-found` | signed in |
+| POST | `/lost-found/:id/resolve` | the person who posted it |
+| GET | `/lost-found/matches` | signed in (own matches) |
+| GET, POST | `/lost-found/matches/:id/messages` | the two matched parties |
+| GET | `/locations`, `/map` | signed in |
+| GET | `/notifications`; POST `/notifications/read` | signed in |
 
 Errors are returned as `{ "error": "message" }` with a matching HTTP status.

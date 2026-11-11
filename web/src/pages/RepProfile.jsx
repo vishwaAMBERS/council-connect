@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Badge, Chip, Button, Modal, Field, useToast, Card, InitialsAvatar, VerifiedBadge, ErrorNote, Loading } from '../components/ui.jsx';
+import { Badge, Chip, Button, Modal, Field, useToast, Card, InitialsAvatar, VerifiedBadge, ErrorNote, Loading, ImageInput } from '../components/ui.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -23,6 +23,7 @@ export function UserProfileView({ userId }) {
   const [description, setDescription] = useState('');
   const [verifyTarget, setVerifyTarget] = useState(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [about, setAbout] = useState('');
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -85,6 +86,14 @@ export function UserProfileView({ userId }) {
     }
   };
 
+  const savePhoto = async (avatarUrl) => {
+    const ok = await run(() => api.patch('/users/me', { avatarUrl }), avatarUrl ? 'Photo updated' : 'Photo removed');
+    if (ok) {
+      setPhotoOpen(false);
+      refreshUser().catch(() => {});
+    }
+  };
+
   const openModal = (open) => {
     setActionError(null);
     open();
@@ -104,10 +113,18 @@ export function UserProfileView({ userId }) {
         <Card accent pad style={{ textAlign: 'center' }}>
           <InitialsAvatar
             name={user.fullName}
+            src={user.avatarUrl}
             size={130}
             fontSize="2.4rem"
             style={{ margin: '0 auto 18px', border: '4px solid #fff', boxShadow: '0 10px 32px rgba(0,0,0,.12), 0 0 0 8px rgba(34,102,237,.07)' }}
           />
+          {isSelf && (
+            <div style={{ marginBottom: 10 }}>
+              <Button variant="out" size="sm" onClick={() => openModal(() => setPhotoOpen(true))}>
+                <i className="fas fa-camera" /> {user.avatarUrl ? 'Change photo' : 'Add photo'}
+              </Button>
+            </div>
+          )}
           <h1 className="page-title" style={{ fontSize: '1.5rem' }}>{user.fullName}</h1>
           <div className="row" style={{ justifyContent: 'center', margin: '8px 0 12px', flexWrap: 'wrap' }}>
             <Badge tone="blue" icon="id-badge">{ROLE_LABEL[user.role]}</Badge>
@@ -263,6 +280,12 @@ export function UserProfileView({ userId }) {
             </div>
           </>
         )}
+      </Modal>
+
+      <Modal open={photoOpen} onClose={() => setPhotoOpen(false)} title="Profile photo">
+        <ErrorNote error={actionError} />
+        <p className="muted" style={{ fontSize: '0.8rem', marginBottom: 12 }}>PNG, JPEG or WebP, up to 5 MB. Without a photo your initials are shown.</p>
+        <ImageInput value={user.avatarUrl} onChange={savePhoto} />
       </Modal>
 
       <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} title="Edit About">
